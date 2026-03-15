@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields:
+    //   - displayName: string
+    //   - email: string
+    //   - photoURL: string
+    //   - role: string (user/admin)
+    //
+    // Collection: messages
+    // Fields:
+    //   - text: string (max 1000 chars)
+    //   - senderId: string (UID)
+    //   - senderName: string
+    //   - timestamp: timestamp
+    //
+    // Collection: notes
+    // Fields:
+    //   - title: string (optional)
+    //   - content: string (max 5000 chars)
+    //   - authorId: string (UID)
+    //   - authorName: string
+    //   - timestamp: timestamp
+    //   - color: string (optional)
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "glebkarpuhin8@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['text', 'senderId', 'senderName', 'timestamp']) &&
+             data.text is string && data.text.size() <= 1000 &&
+             data.senderId == request.auth.uid &&
+             data.timestamp is timestamp;
+    }
+
+    function isValidNote(data) {
+      return data.keys().hasAll(['content', 'authorId', 'authorName', 'timestamp']) &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.authorId == request.auth.uid &&
+             data.timestamp is timestamp &&
+             (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
+             (!('color' in data) || (data.color is string && data.color.size() <= 20));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'displayName', 'photoURL', 'role']) &&
+             data.email is string &&
+             data.displayName is string &&
+             data.photoURL is string &&
+             data.role in ['user', 'admin'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /notes/{noteId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidNote(request.resource.data);
+      allow update: if isAuthenticated() && isValidNote(request.resource.data) && (request.resource.data.authorId == resource.data.authorId || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}
