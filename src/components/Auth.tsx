@@ -11,10 +11,18 @@ export default function Auth() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const WHITELIST = ['glebkarpuhin8@gmail.com', 'arhipovaaliena78@gmail.com'];
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    if (!WHITELIST.includes(email.toLowerCase())) {
+      setError('Access denied. This is a private space for two.');
+      setLoading(false);
+      return;
+    }
 
     try {
       if (isLogin) {
@@ -28,7 +36,19 @@ export default function Auth() {
       }
     } catch (err: any) {
       console.error("Auth error:", err);
-      setError(err.message || 'An error occurred during authentication');
+      let friendlyMessage = 'An error occurred during authentication';
+      
+      if (err.code === 'auth/email-already-in-use') {
+        friendlyMessage = 'This email is already registered. Please sign in instead.';
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        friendlyMessage = 'Invalid email or password. Please try again.';
+      } else if (err.code === 'auth/weak-password') {
+        friendlyMessage = 'Password is too weak. Please use at least 6 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        friendlyMessage = 'Please enter a valid email address.';
+      }
+      
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }

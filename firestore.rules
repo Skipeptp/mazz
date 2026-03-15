@@ -46,6 +46,12 @@ service cloud.firestore {
          (request.auth.token.email == "glebkarpuhin8@gmail.com" && request.auth.token.email_verified == true));
     }
 
+    function isWhitelisted() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "glebkarpuhin8@gmail.com" || 
+         request.auth.token.email == "arhipovaaliena78@gmail.com");
+    }
+
     function isValidMessage(data) {
       return data.keys().hasAll(['text', 'senderId', 'senderName', 'timestamp']) &&
              data.text is string && data.text.size() <= 1000 &&
@@ -75,22 +81,22 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
-      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow read: if isWhitelisted();
+      allow create: if isWhitelisted() && isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isWhitelisted() && ((isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin());
     }
 
     match /messages/{messageId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      allow read: if isWhitelisted();
+      allow create: if isWhitelisted() && isValidMessage(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /notes/{noteId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidNote(request.resource.data);
-      allow update: if isAuthenticated() && isValidNote(request.resource.data) && (request.resource.data.authorId == resource.data.authorId || isAdmin());
-      allow delete: if isAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow read: if isWhitelisted();
+      allow create: if isWhitelisted() && isValidNote(request.resource.data);
+      allow update: if isWhitelisted() && isValidNote(request.resource.data) && (request.resource.data.authorId == resource.data.authorId || isAdmin());
+      allow delete: if isWhitelisted() && (resource.data.authorId == request.auth.uid || isAdmin());
     }
 
     match /test/connection {

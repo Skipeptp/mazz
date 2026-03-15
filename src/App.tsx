@@ -16,6 +16,14 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
+        const WHITELIST = ['glebkarpuhin8@gmail.com', 'arhipovaaliena78@gmail.com'];
+        if (!u.email || !WHITELIST.includes(u.email.toLowerCase())) {
+          await signOut(auth);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         // Ensure user exists in Firestore
         const userRef = doc(db, 'users', u.uid);
         const userSnap = await getDoc(userRef);
