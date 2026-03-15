@@ -1,44 +1,18 @@
 {
   "entities": {
-    "Message": {
-      "title": "Message",
-      "description": "A chat message between the couple",
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information including mood, status and tier list.",
       "type": "object",
       "properties": {
-        "text": { "type": "string", "description": "The message content" },
-        "senderId": { "type": "string", "description": "UID of the sender" },
-        "senderName": { "type": "string", "description": "Name of the sender" },
-        "timestamp": { "type": "string", "format": "date-time", "description": "When the message was sent" }
-      },
-      "required": ["text", "senderId", "timestamp"]
-    },
-    "Note": {
-      "title": "Note",
-      "description": "A shared note or memory",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string", "description": "Title of the note" },
-        "content": { "type": "string", "description": "Content of the note (markdown supported)" },
-        "authorId": { "type": "string", "description": "UID of the creator" },
-        "authorName": { "type": "string", "description": "Name of the creator" },
-        "timestamp": { "type": "string", "format": "date-time", "description": "When the note was last updated" },
-        "color": { "type": "string", "description": "Background color for the note card" }
-      },
-      "required": ["content", "authorId", "timestamp"]
-    },
-    "User": {
-      "title": "User",
-      "description": "User profile information",
-      "type": "object",
-      "properties": {
+        "email": { "type": "string", "format": "email" },
         "displayName": { "type": "string" },
-        "email": { "type": "string" },
-        "photoURL": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
         "role": { "type": "string", "enum": ["user", "admin"] },
         "mood": { "type": "string", "description": "Current mood emoji" },
-        "status": { "type": "string", "description": "What the user wants right now" },
-        "tierList": { 
-          "type": "array", 
+        "status": { "type": "string", "description": "Current status or wish" },
+        "tierList": {
+          "type": "array",
           "items": {
             "type": "object",
             "properties": {
@@ -49,21 +23,47 @@
           }
         }
       },
-      "required": ["email"]
+      "required": ["email", "displayName", "photoURL", "role"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A chat message between users.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "timestamp": { "type": "object", "description": "Firestore server timestamp" }
+      },
+      "required": ["text", "senderId", "senderName", "timestamp"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "A shared note or memory.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "timestamp": { "type": "object", "description": "Firestore server timestamp" },
+        "color": { "type": "string" }
+      },
+      "required": ["content", "authorId", "authorName", "timestamp"]
     }
   },
   "firestore": {
-    "messages": {
+    "users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "messages/{messageId}": {
       "schema": "Message",
-      "description": "Collection of chat messages"
+      "description": "Chat messages collection"
     },
-    "notes": {
+    "notes/{noteId}": {
       "schema": "Note",
-      "description": "Collection of shared notes"
-    },
-    "users": {
-      "schema": "User",
-      "description": "Collection of user profiles"
+      "description": "Shared notes collection"
     }
   }
 }
