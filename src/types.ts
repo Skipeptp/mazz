@@ -32,4 +32,6 @@ export interface Note {
   authorName: string;
   timestamp: any;
   color?: string;
+  type?: 'text' | 'list';
+  items?: { id: string; text: string; completed: boolean }[];
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, db, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, updateDoc } from '../firebase';
 import { Note } from '../types';
 import { format } from 'date-fns';
-import { Plus, Trash2, X, Check, StickyNote } from 'lucide-react';
+import { Plus, Trash2, X, Check, StickyNote, ListTodo, Square, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
@@ -13,7 +13,14 @@ const COLORS = [
 export default function Notes() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isAdding, setIsAdding] = useState(false);
-  const [newNote, setNewNote] = useState({ title: '', content: '', color: COLORS[0] });
+  const [newNote, setNewNote] = useState({ 
+    title: '', 
+    content: '', 
+    color: COLORS[0], 
+    type: 'text' as 'text' | 'list',
+    items: [] as { id: string; text: string; completed: boolean }[]
+  });
+  const [newItemText, setNewItemText] = useState('');
 
   useEffect(() => {
     const q = query(collection(db, 'notes'), orderBy('timestamp', 'desc'));
@@ -22,19 +29,15 @@ export default function Notes() {
       setNotes(nts);
     }, (error) => {
       console.error("Notes error:", error);
-      // Log detailed error for debugging
-      console.error('Firestore Error Info:', JSON.stringify({
-        error: error.message,
-        operation: 'list',
-        path: 'notes',
-        userId: auth.currentUser?.uid
-      }));
     });
     return () => unsubscribe();
   }, []);
 
   const addNote = async () => {
-    if (!newNote.content.trim() || !auth.currentUser) return;
+    if (newNote.type === 'text' && !newNote.content.trim()) return;
+    if (newNote.type === 'list' && newNote.items.length === 0) return;
+    if (!auth.currentUser) return;
+
     try {
       await addDoc(collection(db, 'notes'), {
         ...newNote,
@@ -42,7 +45,13 @@ export default function Notes() {
         authorName: auth.currentUser.displayName || 'Unknown',
         timestamp: serverTimestamp()
       });
-      setNewNote({ title: '', content: '', color: COLORS[0] });
+      setNewNote({ 
+        title: '', 
+        content: '', 
+        color: COLORS[0], 
+        type: 'text',
+        items: []
+      });
       setIsAdding(false);
     } catch (error) {
       console.error("Error adding note:", error);
@@ -57,6 +66,37 @@ export default function Notes() {
     }
   };
 
+  const toggleItem = async (noteId: string, itemId: string) => {
+    const note = notes.find(n => n.id === noteId);
+    if (!note || !note.items) return;
+
+    const updatedItems = note.items.map(item => 
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+
+    try {
+      await updateDoc(doc(db, 'notes', noteId), { items: updatedItems });
+    } catch (error) {
+      console.error("Error updating item:", error);
+    }
+  };
+
+  const addItemToNewNote = () => {
+    if (!newItemText.trim()) return;
+    setNewNote({
+      ...newNote,
+      items: [...newNote.items, { id: Math.random().toString(36).substr(2, 9), text: newItemText, completed: false }]
+    });
+    setNewItemText('');
+  };
+
+  const removeItemFromNewNote = (id: string) => {
+    setNewNote({
+      ...newNote,
+      items: newNote.items.filter(item => item.id !== id)
+    });
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       <div className="flex justify-between items-center mb-8">
@@ -69,7 +109,7 @@ export default function Notes() {
           className="flex items-center gap-2 px-6 py-3 bg-stone-800 text-white rounded-full hover:bg-stone-700 transition-colors shadow-lg"
         >
           <Plus className="w-4 h-4" />
-          <span>Новая заметка</span>
+          <span>Создать</span>
         </button>
       </div>
 
@@ -83,11 +123,25 @@ export default function Notes() {
           >
             <div className={`w-full max-w-lg p-6 rounded-3xl shadow-2xl ${newNote.color} border border-white/50`}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-serif text-xl">Создать заметку</h3>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setNewNote({ ...newNote, type: 'text' })}
+                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${newNote.type === 'text' ? 'bg-stone-800 text-white' : 'bg-black/5 text-stone-500'}`}
+                  >
+                    Заметка
+                  </button>
+                  <button 
+                    onClick={() => setNewNote({ ...newNote, type: 'list' })}
+                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${newNote.type === 'list' ? 'bg-stone-800 text-white' : 'bg-black/5 text-stone-500'}`}
+                  >
+                    Список
+                  </button>
+                </div>
                 <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-black/5 rounded-full">
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
               <input
                 type="text"
                 placeholder="Заголовок (необязательно)"
@@ -95,12 +149,42 @@ export default function Notes() {
                 onChange={e => setNewNote({ ...newNote, title: e.target.value })}
                 className="w-full bg-transparent border-none focus:ring-0 text-xl font-medium mb-4 placeholder:opacity-50"
               />
-              <textarea
-                placeholder="Напишите что-нибудь прекрасное..."
-                value={newNote.content}
-                onChange={e => setNewNote({ ...newNote, content: e.target.value })}
-                className="w-full bg-transparent border-none focus:ring-0 min-h-[200px] resize-none placeholder:opacity-50"
-              />
+
+              {newNote.type === 'text' ? (
+                <textarea
+                  placeholder="Напишите что-нибудь прекрасное..."
+                  value={newNote.content}
+                  onChange={e => setNewNote({ ...newNote, content: e.target.value })}
+                  className="w-full bg-transparent border-none focus:ring-0 min-h-[200px] resize-none placeholder:opacity-50"
+                />
+              ) : (
+                <div className="min-h-[200px] space-y-2">
+                  <div className="flex gap-2 mb-4">
+                    <input 
+                      type="text"
+                      placeholder="Добавить пункт..."
+                      value={newItemText}
+                      onChange={e => setNewItemText(e.target.value)}
+                      onKeyPress={e => e.key === 'Enter' && addItemToNewNote()}
+                      className="flex-1 bg-black/5 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-stone-400"
+                    />
+                    <button onClick={addItemToNewNote} className="p-2 bg-stone-800 text-white rounded-xl">
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2">
+                    {newNote.items.map(item => (
+                      <div key={item.id} className="flex items-center justify-between bg-white/50 p-2 rounded-xl group">
+                        <span className="text-sm">{item.text}</span>
+                        <button onClick={() => removeItemFromNewNote(item.id)} className="text-stone-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between items-center mt-6">
                 <div className="flex gap-2">
                   {COLORS.map(c => (
@@ -134,11 +218,39 @@ export default function Notes() {
             className={`p-6 rounded-3xl shadow-sm border border-black/5 flex flex-col ${note.color || 'bg-white'}`}
           >
             {note.title && <h4 className="font-serif text-xl mb-2 text-stone-800">{note.title}</h4>}
-            <div className="flex-1 text-stone-700 prose prose-sm prose-stone">
-              <ReactMarkdown>{note.content}</ReactMarkdown>
+            
+            <div className="flex-1">
+              {note.type === 'list' ? (
+                <div className="space-y-2 mb-4">
+                  {note.items?.map(item => (
+                    <div 
+                      key={item.id} 
+                      onClick={() => note.id && toggleItem(note.id, item.id)}
+                      className={`flex items-center gap-3 cursor-pointer transition-all ${item.completed ? 'opacity-40' : 'opacity-100'}`}
+                    >
+                      {item.completed ? (
+                        <CheckSquare className="w-4 h-4 text-stone-500" />
+                      ) : (
+                        <Square className="w-4 h-4 text-stone-400" />
+                      )}
+                      <span className={`text-sm ${item.completed ? 'line-through' : ''}`}>
+                        {item.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-stone-700 prose prose-sm prose-stone mb-4">
+                  <ReactMarkdown>{note.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
-            <div className="mt-6 pt-4 border-t border-black/5 flex justify-between items-center text-[10px] uppercase tracking-widest text-stone-400 font-bold">
-              <span>{note.authorName} • {note.timestamp?.toDate ? format(note.timestamp.toDate(), 'd MMM') : '...'}</span>
+
+            <div className="mt-auto pt-4 border-t border-black/5 flex justify-between items-center text-[10px] uppercase tracking-widest text-stone-400 font-bold">
+              <div className="flex items-center gap-2">
+                {note.type === 'list' ? <ListTodo className="w-3 h-3" /> : <StickyNote className="w-3 h-3" />}
+                <span>{note.authorName} • {note.timestamp?.toDate ? format(note.timestamp.toDate(), 'd MMM') : '...'}</span>
+              </div>
               <button
                 onClick={() => note.id && deleteNote(note.id)}
                 className="p-2 hover:bg-rose-100 hover:text-rose-500 rounded-full transition-colors"

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, db, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp } from '../firebase';
+import { auth, db, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, getDocs, where, deleteDoc, doc, writeBatch } from '../firebase';
 import { Message } from '../types';
-import { format } from 'date-fns';
-import { Send, Heart } from 'lucide-react';
+import { format, startOfDay } from 'date-fns';
+import { Send, Heart, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Chat() {
@@ -11,19 +11,41 @@ export default function Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'messages'), orderBy('timestamp', 'asc'), limit(100));
+    const today = startOfDay(new Date());
+    
+    // Cleanup old messages (older than today)
+    const cleanupOldMessages = async () => {
+      try {
+        const qOld = query(collection(db, 'messages'), where('timestamp', '<', today));
+        const snapshot = await getDocs(qOld);
+        if (!snapshot.empty) {
+          const batch = writeBatch(db);
+          snapshot.docs.forEach((d) => {
+            batch.delete(d.ref);
+          });
+          await batch.commit();
+          console.log('Old messages cleaned up');
+        }
+      } catch (error) {
+        console.error("Cleanup error:", error);
+      }
+    };
+
+    cleanupOldMessages();
+
+    // Listen only to today's messages
+    const q = query(
+      collection(db, 'messages'), 
+      where('timestamp', '>=', today),
+      orderBy('timestamp', 'asc'), 
+      limit(100)
+    );
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       setMessages(msgs);
     }, (error) => {
       console.error("Chat error:", error);
-      // Log detailed error for debugging
-      console.error('Firestore Error Info:', JSON.stringify({
-        error: error.message,
-        operation: 'list',
-        path: 'messages',
-        userId: auth.currentUser?.uid
-      }));
     });
     return () => unsubscribe();
   }, []);
