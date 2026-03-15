@@ -17,6 +17,13 @@ export default function Chat() {
       setMessages(msgs);
     }, (error) => {
       console.error("Chat error:", error);
+      // Log detailed error for debugging
+      console.error('Firestore Error Info:', JSON.stringify({
+        error: error.message,
+        operation: 'list',
+        path: 'messages',
+        userId: auth.currentUser?.uid
+      }));
     });
     return () => unsubscribe();
   }, []);

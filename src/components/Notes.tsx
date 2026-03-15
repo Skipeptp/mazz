@@ -20,6 +20,15 @@ export default function Notes() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const nts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Note));
       setNotes(nts);
+    }, (error) => {
+      console.error("Notes error:", error);
+      // Log detailed error for debugging
+      console.error('Firestore Error Info:', JSON.stringify({
+        error: error.message,
+        operation: 'list',
+        path: 'notes',
+        userId: auth.currentUser?.uid
+      }));
     });
     return () => unsubscribe();
   }, []);

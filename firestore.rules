@@ -42,14 +42,18 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "glebkarpuhin8@gmail.com" && request.auth.token.email_verified == true));
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email != null && 
+          request.auth.token.email.matches("(?i)glebkarpuhin8@gmail.com") && 
+          request.auth.token.email_verified == true));
     }
 
     function isWhitelisted() {
       return isAuthenticated() && 
-        (request.auth.token.email == "glebkarpuhin8@gmail.com" || 
-         request.auth.token.email == "arhipovaaliena78@gmail.com");
+             request.auth.token.email != null &&
+             (request.auth.token.email.matches("(?i)glebkarpuhin8@gmail.com") || 
+              request.auth.token.email.matches("(?i)arhipovaaliena78@gmail.com"));
     }
 
     function isValidMessage(data) {
@@ -84,19 +88,19 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isWhitelisted();
+      allow read: if isAuthenticated();
       allow create: if isWhitelisted() && isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
       allow update: if isWhitelisted() && ((isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin());
     }
 
     match /messages/{messageId} {
-      allow read: if isWhitelisted();
+      allow read: if isAuthenticated();
       allow create: if isWhitelisted() && isValidMessage(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /notes/{noteId} {
-      allow read: if isWhitelisted();
+      allow read: if isAuthenticated();
       allow create: if isWhitelisted() && isValidNote(request.resource.data);
       allow update: if isWhitelisted() && isValidNote(request.resource.data) && (request.resource.data.authorId == resource.data.authorId || isAdmin());
       allow delete: if isWhitelisted() && (resource.data.authorId == request.auth.uid || isAdmin());
