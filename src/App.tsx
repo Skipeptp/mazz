@@ -234,13 +234,6 @@ export default function App() {
                         {partner.status || 'Просто наслаждается моментом'}
                       </p>
                     </div>
-                    <button 
-                      onClick={() => setIsEditingTierList(true)}
-                      className="p-3 bg-stone-50 rounded-2xl text-stone-400 hover:text-rose-500 transition-colors"
-                      title="Тир-лист партнера"
-                    >
-                      <List className="w-5 h-5" />
-                    </button>
                   </motion.div>
                 )}
 
@@ -297,48 +290,44 @@ export default function App() {
                         </div>
                       )}
                     </div>
-
-                    <div className="pt-4 border-t border-stone-100 flex gap-4">
-                      <button
-                        onClick={() => setIsEditingTierList(false)}
-                        className="flex-1 py-4 bg-stone-50 text-stone-600 rounded-2xl flex items-center justify-center gap-2 hover:bg-stone-100 transition-colors"
-                      >
-                        <List className="w-4 h-4" />
-                        Мой Тир-лист
-                      </button>
-                      <button
-                        onClick={() => signOut(auth)}
-                        className="px-6 py-4 bg-stone-50 text-stone-400 rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-colors"
-                      >
-                        <LogOut className="w-5 h-5" />
-                      </button>
-                    </div>
                   </div>
                 </div>
 
                 {/* Tier List Section */}
-                <div className="bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-serif text-2xl">Тир-лист {isEditingTierList ? `(${partner?.displayName})` : '(Мой)'}</h3>
+                <div className="bg-white p-6 sm:p-8 rounded-[40px] shadow-xl border border-stone-100">
+                  <div className="flex flex-col gap-4 mb-6">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-serif text-2xl">Тир-лист</h3>
+                      <button 
+                        onClick={() => setIsEditingTierList(!isEditingTierList)}
+                        className="p-2 px-3 bg-stone-50 text-stone-500 rounded-xl hover:bg-stone-100 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
+                      >
+                        <List className="w-4 h-4" />
+                        {isEditingTierList ? 'Мой' : (partner?.displayName || 'Её')}
+                      </button>
+                    </div>
+                    
                     {!isEditingTierList && (
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input 
                           type="text" 
                           placeholder="Что добавим?"
                           value={tierItemLabel}
                           onChange={e => setTierItemLabel(e.target.value)}
-                          className="px-3 py-1 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none"
+                          className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-rose-200"
                         />
-                        <select 
-                          value={tierItemLevel}
-                          onChange={e => setTierItemLevel(e.target.value as TierItem['tier'])}
-                          className="bg-stone-50 border border-stone-100 rounded-lg text-sm px-1"
-                        >
-                          {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        <button onClick={addTierItem} className="p-2 bg-stone-800 text-white rounded-lg">
-                          <Plus className="w-4 h-4" />
-                        </button>
+                        <div className="flex gap-2">
+                          <select 
+                            value={tierItemLevel}
+                            onChange={e => setTierItemLevel(e.target.value as TierItem['tier'])}
+                            className="flex-1 sm:flex-none bg-stone-50 border border-stone-100 rounded-xl text-sm px-3 py-2 outline-none"
+                          >
+                            {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <button onClick={addTierItem} className="p-2 px-4 bg-stone-800 text-white rounded-xl hover:bg-stone-700 transition-colors">
+                            <Plus className="w-5 h-5" />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -348,7 +337,7 @@ export default function App() {
                       const items = (isEditingTierList ? partner?.tierList : user.tierList)?.filter(i => i.tier === tier) || [];
                       return (
                         <div key={tier} className="flex gap-4 items-center">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white shadow-sm
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-bold text-white shadow-sm shrink-0
                             ${tier === 'S' ? 'bg-rose-500' : tier === 'A' ? 'bg-orange-400' : tier === 'B' ? 'bg-amber-400' : tier === 'C' ? 'bg-emerald-400' : 'bg-sky-400'}`}>
                             {tier}
                           </div>
@@ -369,15 +358,17 @@ export default function App() {
                       );
                     })}
                   </div>
-                  
-                  {isEditingTierList && (
-                    <button 
-                      onClick={() => setIsEditingTierList(false)}
-                      className="mt-6 w-full py-3 bg-stone-50 text-stone-500 rounded-2xl text-sm hover:bg-stone-100 transition-colors"
-                    >
-                      Вернуться к моему списку
-                    </button>
-                  )}
+                </div>
+
+                {/* Logout Section */}
+                <div className="bg-white p-4 rounded-3xl shadow-sm border border-stone-100 flex justify-center">
+                  <button
+                    onClick={() => signOut(auth)}
+                    className="flex items-center gap-2 text-stone-400 hover:text-rose-500 transition-colors text-sm font-medium"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Выйти из аккаунта
+                  </button>
                 </div>
               </div>
             )}
