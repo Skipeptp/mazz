@@ -1,9 +1,18 @@
+export interface TierItem {
+  id: string;
+  label: string;
+  tier: 'S' | 'A' | 'B' | 'C' | 'D';
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
   photoURL: string;
   role: 'user' | 'admin';
+  mood?: string;
+  status?: string;
+  tierList?: TierItem[];
 }
 
 export interface Message {

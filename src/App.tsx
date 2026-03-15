@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc } from './firebase';
+import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot } from './firebase';
 import Auth from './components/Auth';
 import Chat from './components/Chat';
 import Notes from './components/Notes';
-import { MessageCircle, StickyNote, LogOut, Heart, User } from 'lucide-react';
+import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { UserProfile, TierItem } from './types';
 
 type Tab = 'chat' | 'notes' | 'profile';
 
+const MOODS = ['😊', '🥰', '😴', '🤔', '😢', '😤', '🥳', '🤒', '😇', '😎'];
+const TIERS: TierItem['tier'][] = ['S', 'A', 'B', 'C', 'D'];
+
 export default function App() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [partner, setPartner] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('chat');
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [statusInput, setStatusInput] = useState('');
+  const [isEditingTierList, setIsEditingTierList] = useState(false);
+  const [tierItemLabel, setTierItemLabel] = useState('');
+  const [tierItemLevel, setTierItemLevel] = useState<TierItem['tier']>('S');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -24,26 +34,82 @@ export default function App() {
           return;
         }
 
-        // Ensure user exists in Firestore
         const userRef = doc(db, 'users', u.uid);
-        const userSnap = await getDoc(userRef);
         
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            email: u.email,
-            displayName: u.displayName,
-            photoURL: u.photoURL,
-            role: 'user'
-          });
-        }
-        setUser(u);
+        // Listen to own profile
+        const unsubUser = onSnapshot(userRef, (doc) => {
+          if (doc.exists()) {
+            setUser({ uid: doc.id, ...doc.data() } as UserProfile);
+            setStatusInput(doc.data().status || '');
+          } else {
+            // Create user if not exists
+            setDoc(userRef, {
+              email: u.email,
+              displayName: u.displayName || 'Пользователь',
+              photoURL: u.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.email}`,
+              role: 'user',
+              mood: '😊',
+              status: '',
+              tierList: []
+            });
+          }
+        });
+
+        // Listen to partner profile
+        const partnerEmail = u.email.toLowerCase() === 'glebkarpuhin8@gmail.com' 
+          ? 'arhipovaaliena78@gmail.com' 
+          : 'glebkarpuhin8@gmail.com';
+        
+        const q = query(collection(db, 'users'), where('email', '==', partnerEmail));
+        const unsubPartner = onSnapshot(q, (snapshot) => {
+          if (!snapshot.empty) {
+            const pDoc = snapshot.docs[0];
+            setPartner({ uid: pDoc.id, ...pDoc.data() } as UserProfile);
+          }
+        });
+
+        setLoading(false);
+        return () => {
+          unsubUser();
+          unsubPartner();
+        };
       } else {
         setUser(null);
+        setPartner(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
+
+  const updateMood = async (mood: string) => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), { mood });
+  };
+
+  const updateStatus = async () => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), { status: statusInput });
+    setIsEditingStatus(false);
+  };
+
+  const addTierItem = async () => {
+    if (!user || !tierItemLabel.trim()) return;
+    const newItem: TierItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      label: tierItemLabel,
+      tier: tierItemLevel
+    };
+    const newList = [...(user.tierList || []), newItem];
+    await updateDoc(doc(db, 'users', user.uid), { tierList: newList });
+    setTierItemLabel('');
+  };
+
+  const removeTierItem = async (id: string) => {
+    if (!user) return;
+    const newList = (user.tierList || []).filter(item => item.id !== id);
+    await updateDoc(doc(db, 'users', user.uid), { tierList: newList });
+  };
 
   if (loading) {
     return (
@@ -68,19 +134,19 @@ export default function App() {
           active={activeTab === 'chat'} 
           onClick={() => setActiveTab('chat')} 
           icon={<MessageCircle className="w-5 h-5" />} 
-          label="Chat"
+          label="Чат"
         />
         <NavButton 
           active={activeTab === 'notes'} 
           onClick={() => setActiveTab('notes')} 
           icon={<StickyNote className="w-5 h-5" />} 
-          label="Notes"
+          label="Заметки"
         />
         <NavButton 
           active={activeTab === 'profile'} 
           onClick={() => setActiveTab('profile')} 
           icon={<User className="w-5 h-5" />} 
-          label="Me"
+          label="Профиль"
         />
       </nav>
 
@@ -97,25 +163,170 @@ export default function App() {
             {activeTab === 'chat' && <Chat />}
             {activeTab === 'notes' && <Notes />}
             {activeTab === 'profile' && (
-              <div className="max-w-md mx-auto bg-white p-8 rounded-[40px] shadow-xl border border-stone-100 text-center">
-                <div className="w-24 h-24 rounded-full mx-auto mb-6 border-4 border-rose-50 shadow-lg overflow-hidden bg-rose-100 flex items-center justify-center">
-                  {user.photoURL ? (
-                    <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-12 h-12 text-rose-300" />
-                  )}
-                </div>
-                <h2 className="font-serif text-2xl mb-1">{user.displayName || 'User'}</h2>
-                <p className="text-stone-400 text-sm mb-8">{user.email}</p>
-                
-                <div className="space-y-4">
-                  <button
-                    onClick={() => signOut(auth)}
-                    className="w-full py-4 bg-stone-100 text-stone-600 rounded-2xl flex items-center justify-center gap-2 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+              <div className="max-w-2xl mx-auto space-y-6">
+                {/* Partner Status Card */}
+                {partner && (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="bg-white p-6 rounded-[32px] shadow-sm border border-stone-100 flex items-center gap-4"
                   >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </button>
+                    <div className="relative">
+                      <img src={partner.photoURL} alt={partner.displayName} className="w-16 h-16 rounded-full border-2 border-rose-100" />
+                      <div className="absolute -bottom-1 -right-1 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xl">
+                        {partner.mood || '😊'}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-serif text-lg">{partner.displayName} сейчас...</h3>
+                      <p className="text-stone-500 italic text-sm">
+                        {partner.status || 'Просто наслаждается моментом'}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => setIsEditingTierList(true)}
+                      className="p-3 bg-stone-50 rounded-2xl text-stone-400 hover:text-rose-500 transition-colors"
+                      title="Тир-лист партнера"
+                    >
+                      <List className="w-5 h-5" />
+                    </button>
+                  </motion.div>
+                )}
+
+                {/* My Profile Card */}
+                <div className="bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
+                  <div className="text-center mb-8">
+                    <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-rose-50 shadow-lg overflow-hidden bg-rose-100 flex items-center justify-center">
+                      <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
+                    </div>
+                    <h2 className="font-serif text-2xl mb-1">{user.displayName}</h2>
+                    <p className="text-stone-400 text-sm">{user.email}</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Mood Selection */}
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Мое настроение</label>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {MOODS.map(m => (
+                          <button
+                            key={m}
+                            onClick={() => updateMood(m)}
+                            className={`text-2xl p-2 rounded-xl transition-all ${user.mood === m ? 'bg-rose-50 scale-110 shadow-inner' : 'hover:bg-stone-50'}`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Status Editing */}
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Чего я хочу сейчас</label>
+                      {isEditingStatus ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={statusInput}
+                            onChange={(e) => setStatusInput(e.target.value)}
+                            className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-200"
+                            placeholder="Напиши свое желание..."
+                          />
+                          <button onClick={updateStatus} className="p-2 bg-stone-800 text-white rounded-xl">
+                            <Check className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div 
+                          onClick={() => setIsEditingStatus(true)}
+                          className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
+                        >
+                          <p className="text-stone-600 italic">{user.status || 'Нажми, чтобы добавить статус...'}</p>
+                          <Edit3 className="w-4 h-4 text-stone-300 group-hover:text-rose-400 transition-colors" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-stone-100 flex gap-4">
+                      <button
+                        onClick={() => setIsEditingTierList(false)}
+                        className="flex-1 py-4 bg-stone-50 text-stone-600 rounded-2xl flex items-center justify-center gap-2 hover:bg-stone-100 transition-colors"
+                      >
+                        <List className="w-4 h-4" />
+                        Мой Тир-лист
+                      </button>
+                      <button
+                        onClick={() => signOut(auth)}
+                        className="px-6 py-4 bg-stone-50 text-stone-400 rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-colors"
+                      >
+                        <LogOut className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tier List Section */}
+                <div className="bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-serif text-2xl">Тир-лист {isEditingTierList ? `(${partner?.displayName})` : '(Мой)'}</h3>
+                    {!isEditingTierList && (
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          placeholder="Что добавим?"
+                          value={tierItemLabel}
+                          onChange={e => setTierItemLabel(e.target.value)}
+                          className="px-3 py-1 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none"
+                        />
+                        <select 
+                          value={tierItemLevel}
+                          onChange={e => setTierItemLevel(e.target.value as TierItem['tier'])}
+                          className="bg-stone-50 border border-stone-100 rounded-lg text-sm px-1"
+                        >
+                          {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <button onClick={addTierItem} className="p-2 bg-stone-800 text-white rounded-lg">
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    {TIERS.map(tier => {
+                      const items = (isEditingTierList ? partner?.tierList : user.tierList)?.filter(i => i.tier === tier) || [];
+                      return (
+                        <div key={tier} className="flex gap-4 items-center">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-white shadow-sm
+                            ${tier === 'S' ? 'bg-rose-500' : tier === 'A' ? 'bg-orange-400' : tier === 'B' ? 'bg-amber-400' : tier === 'C' ? 'bg-emerald-400' : 'bg-sky-400'}`}>
+                            {tier}
+                          </div>
+                          <div className="flex-1 flex flex-wrap gap-2">
+                            {items.map(item => (
+                              <div key={item.id} className="px-3 py-1 bg-stone-50 border border-stone-100 rounded-full text-sm flex items-center gap-2 group">
+                                {item.label}
+                                {!isEditingTierList && (
+                                  <button onClick={() => removeTierItem(item.id)} className="text-stone-300 hover:text-rose-500 transition-colors">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            {items.length === 0 && <span className="text-stone-300 text-xs italic py-2">Пусто...</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {isEditingTierList && (
+                    <button 
+                      onClick={() => setIsEditingTierList(false)}
+                      className="mt-6 w-full py-3 bg-stone-50 text-stone-500 rounded-2xl text-sm hover:bg-stone-100 transition-colors"
+                    >
+                      Вернуться к моему списку
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -137,4 +348,8 @@ function NavButton({ active, onClick, icon, label }: { active: boolean, onClick:
       {active && <motion.div layoutId="nav-dot" className="w-1 h-1 bg-rose-500 rounded-full mt-0.5" />}
     </button>
   );
+}
+
+function Check({ className }: { className?: string }) {
+  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"/></svg>;
 }

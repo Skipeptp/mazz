@@ -34,7 +34,20 @@
         "displayName": { "type": "string" },
         "email": { "type": "string" },
         "photoURL": { "type": "string" },
-        "role": { "type": "string", "enum": ["user", "admin"] }
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "mood": { "type": "string", "description": "Current mood emoji" },
+        "status": { "type": "string", "description": "What the user wants right now" },
+        "tierList": { 
+          "type": "array", 
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "tier": { "type": "string", "enum": ["S", "A", "B", "C", "D"] }
+            }
+          }
+        }
       },
       "required": ["email"]
     }

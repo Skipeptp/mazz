@@ -52,15 +52,15 @@ export default function Notes() {
     <div className="max-w-4xl mx-auto p-4">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="font-serif text-3xl text-stone-800">Our Memories</h2>
-          <p className="text-stone-500 italic">Notes, dreams, and little things...</p>
+          <h2 className="font-serif text-3xl text-stone-800">Наши воспоминания</h2>
+          <p className="text-stone-500 italic">Заметки, мечты и всякие мелочи...</p>
         </div>
         <button
           onClick={() => setIsAdding(true)}
           className="flex items-center gap-2 px-6 py-3 bg-stone-800 text-white rounded-full hover:bg-stone-700 transition-colors shadow-lg"
         >
           <Plus className="w-4 h-4" />
-          <span>New Note</span>
+          <span>Новая заметка</span>
         </button>
       </div>
 
@@ -74,20 +74,20 @@ export default function Notes() {
           >
             <div className={`w-full max-w-lg p-6 rounded-3xl shadow-2xl ${newNote.color} border border-white/50`}>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-serif text-xl">Create Note</h3>
+                <h3 className="font-serif text-xl">Создать заметку</h3>
                 <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-black/5 rounded-full">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <input
                 type="text"
-                placeholder="Title (optional)"
+                placeholder="Заголовок (необязательно)"
                 value={newNote.title}
                 onChange={e => setNewNote({ ...newNote, title: e.target.value })}
                 className="w-full bg-transparent border-none focus:ring-0 text-xl font-medium mb-4 placeholder:opacity-50"
               />
               <textarea
-                placeholder="Write something beautiful..."
+                placeholder="Напишите что-нибудь прекрасное..."
                 value={newNote.content}
                 onChange={e => setNewNote({ ...newNote, content: e.target.value })}
                 className="w-full bg-transparent border-none focus:ring-0 min-h-[200px] resize-none placeholder:opacity-50"
@@ -107,7 +107,7 @@ export default function Notes() {
                   className="px-6 py-2 bg-stone-800 text-white rounded-full flex items-center gap-2"
                 >
                   <Check className="w-4 h-4" />
-                  Save
+                  Сохранить
                 </button>
               </div>
             </div>
@@ -129,7 +129,7 @@ export default function Notes() {
               <ReactMarkdown>{note.content}</ReactMarkdown>
             </div>
             <div className="mt-6 pt-4 border-t border-black/5 flex justify-between items-center text-[10px] uppercase tracking-widest text-stone-400 font-bold">
-              <span>{note.authorName} • {note.timestamp?.toDate ? format(note.timestamp.toDate(), 'MMM d') : '...'}</span>
+              <span>{note.authorName} • {note.timestamp?.toDate ? format(note.timestamp.toDate(), 'd MMM') : '...'}</span>
               <button
                 onClick={() => note.id && deleteNote(note.id)}
                 className="p-2 hover:bg-rose-100 hover:text-rose-500 rounded-full transition-colors"
@@ -144,7 +144,7 @@ export default function Notes() {
       {notes.length === 0 && (
         <div className="text-center py-20 opacity-30">
           <StickyNote className="w-16 h-16 mx-auto mb-4" />
-          <p className="font-serif text-xl">No notes yet. Start sharing memories!</p>
+          <p className="font-serif text-xl">Заметок пока нет. Начните делиться воспоминаниями!</p>
         </div>
       )}
     </div>

@@ -72,9 +72,9 @@ export default function Auth() {
           </motion.div>
         </div>
         
-        <h1 className="font-serif text-3xl mb-2 text-stone-800 text-center">Our Space</h1>
+        <h1 className="font-serif text-3xl mb-2 text-stone-800 text-center">Наше Пространство</h1>
         <p className="text-stone-500 mb-8 text-center text-sm">
-          {isLogin ? 'Welcome back, love.' : 'Create your private corner.'}
+          {isLogin ? 'С возвращением, любовь моя.' : 'Создайте свой уютный уголок.'}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -89,7 +89,7 @@ export default function Auth() {
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <input
                   type="text"
-                  placeholder="Your Name"
+                  placeholder="Ваше имя"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -103,7 +103,7 @@ export default function Auth() {
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
             <input
               type="email"
-              placeholder="Email Address"
+              placeholder="Email адрес"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -115,7 +115,7 @@ export default function Auth() {
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
             <input
               type="password"
-              placeholder="Password"
+              placeholder="Пароль"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -134,7 +134,7 @@ export default function Auth() {
             disabled={loading}
             className="w-full py-4 bg-stone-800 text-white rounded-full font-medium hover:bg-stone-700 transition-all shadow-xl shadow-stone-200 flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
+            {loading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Создать аккаунт')}
             {!loading && <ArrowRight className="w-4 h-4" />}
           </button>
         </form>
@@ -144,12 +144,12 @@ export default function Auth() {
             onClick={() => setIsLogin(!isLogin)}
             className="text-stone-500 text-sm hover:text-rose-500 transition-colors"
           >
-            {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+            {isLogin ? "Нет аккаунта? Зарегистрироваться" : "Уже есть аккаунт? Войти"}
           </button>
         </div>
         
         <p className="mt-8 text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold text-center">
-          Private • Encrypted • Forever
+          Приватно • Зашифровано • Навсегда
         </p>
       </motion.div>
     </div>

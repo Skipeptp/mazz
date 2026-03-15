@@ -73,7 +73,10 @@ service cloud.firestore {
              data.email is string &&
              data.displayName is string &&
              data.photoURL is string &&
-             data.role in ['user', 'admin'];
+             data.role in ['user', 'admin'] &&
+             (!('mood' in data) || (data.mood is string && data.mood.size() <= 10)) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 200)) &&
+             (!('tierList' in data) || (data.tierList is list));
     }
 
     // ===============================================================

@@ -49,8 +49,8 @@ export default function Chat() {
           <Heart className="text-rose-500 w-5 h-5 fill-rose-500" />
         </div>
         <div>
-          <h2 className="font-serif text-lg font-medium text-stone-800">Our Conversation</h2>
-          <p className="text-xs text-stone-500">Private & Secure</p>
+          <h2 className="font-serif text-lg font-medium text-stone-800">Наш чат</h2>
+          <p className="text-xs text-stone-500">Приватно и безопасно</p>
         </div>
       </div>
 
@@ -88,7 +88,7 @@ export default function Chat() {
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a sweet message..."
+          placeholder="Напишите что-нибудь приятное..."
           className="flex-1 px-4 py-2 rounded-full bg-stone-100 border-none focus:ring-2 focus:ring-rose-300 text-sm transition-all"
         />
         <button
