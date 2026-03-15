@@ -12,6 +12,7 @@ export interface UserProfile {
   role: 'user' | 'admin';
   mood?: string;
   status?: string;
+  location?: string;
   tierList?: TierItem[];
 }
 

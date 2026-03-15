@@ -3,7 +3,7 @@ import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, 
 import Auth from './components/Auth';
 import Chat from './components/Chat';
 import Notes from './components/Notes';
-import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X } from 'lucide-react';
+import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, TierItem } from './types';
 
@@ -70,6 +70,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [statusInput, setStatusInput] = useState('');
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [locationInput, setLocationInput] = useState('');
   const [isEditingTierList, setIsEditingTierList] = useState(false);
   const [tierItemLabel, setTierItemLabel] = useState('');
   const [tierItemLevel, setTierItemLevel] = useState<TierItem['tier']>('S');
@@ -92,6 +94,7 @@ export default function App() {
           if (doc.exists()) {
             setUser({ uid: doc.id, ...doc.data() } as UserProfile);
             setStatusInput(doc.data().status || '');
+            setLocationInput(doc.data().location || '');
           } else {
             // Create user if not exists
             setDoc(userRef, {
@@ -142,6 +145,12 @@ export default function App() {
     if (!user) return;
     await updateDoc(doc(db, 'users', user.uid), { status: statusInput });
     setIsEditingStatus(false);
+  };
+
+  const updateLocation = async () => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), { location: locationInput });
+    setIsEditingLocation(false);
   };
 
   const addTierItem = async () => {
@@ -229,7 +238,15 @@ export default function App() {
                       </div>
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-serif text-lg">{partner.displayName} сейчас...</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-serif text-lg">{partner.displayName} сейчас...</h3>
+                        {partner.location && (
+                          <div className="flex items-center gap-1 text-rose-400 text-[10px] font-bold uppercase tracking-wider bg-rose-50 px-2 py-1 rounded-full">
+                            <MapPin className="w-3 h-3" />
+                            {partner.location}
+                          </div>
+                        )}
+                      </div>
                       <p className="text-stone-500 italic text-sm">
                         {partner.status || 'Просто наслаждается моментом'}
                       </p>
@@ -286,6 +303,36 @@ export default function App() {
                           className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
                         >
                           <p className="text-stone-600 italic">{user.status || 'Нажми, чтобы добавить статус...'}</p>
+                          <Edit3 className="w-4 h-4 text-stone-300 group-hover:text-rose-400 transition-colors" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Location Editing */}
+                    <div>
+                      <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Где я сейчас</label>
+                      {isEditingLocation ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={locationInput}
+                            onChange={(e) => setLocationInput(e.target.value)}
+                            className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-200"
+                            placeholder="Введи свое местоположение..."
+                          />
+                          <button onClick={updateLocation} className="p-2 bg-stone-800 text-white rounded-xl">
+                            <Check className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div 
+                          onClick={() => setIsEditingLocation(true)}
+                          className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <MapPin className={`w-4 h-4 ${user.location ? 'text-rose-400' : 'text-stone-300'}`} />
+                            <p className="text-stone-600 italic">{user.location || 'Нажми, чтобы добавить местоположение...'}</p>
+                          </div>
                           <Edit3 className="w-4 h-4 text-stone-300 group-hover:text-rose-400 transition-colors" />
                         </div>
                       )}
