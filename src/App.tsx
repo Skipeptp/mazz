@@ -101,27 +101,36 @@ export default function App() {
         
         // Listen to own profile
         unsubUserRef.current = onSnapshot(userRef, (docSnap) => {
-          console.log("Own profile snapshot update", docSnap.id, docSnap.data());
           if (docSnap.exists()) {
             const data = docSnap.data();
             const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
             
             // Update displayName if it's different from auth (to keep it "as at registration")
             if (u.displayName && data.displayName !== u.displayName) {
-              updateDoc(userRef, { displayName: u.displayName }).catch(console.error);
+              updateDoc(userRef, { displayName: u.displayName }).catch(e => 
+                handleFirestoreError(e, OperationType.UPDATE, `users/${u.uid}`)
+              );
             }
 
-            setUser({ 
-              uid: docSnap.id, 
-              ...data,
-              displayName: u.displayName || data.displayName || 'Пользователь',
-              photoURL: systemAvatar
-            } as UserProfile);
-            setStatusInput(data.status || '');
-            setLocationInput(data.location || '');
+            setUser(prev => {
+              const newUser = { 
+                uid: docSnap.id, 
+                ...data,
+                displayName: u.displayName || data.displayName || 'Пользователь',
+                photoURL: systemAvatar
+              } as UserProfile;
+              return newUser;
+            });
+
+            // Only update inputs if NOT currently editing to prevent jumping/resetting
+            if (!isEditingStatus) {
+              setStatusInput(data.status || '');
+            }
+            if (!isEditingLocation) {
+              setLocationInput(data.location || '');
+            }
           } else {
             // Create user if not exists
-            console.log("Creating new user document for", email);
             const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
             setDoc(userRef, {
               email: email,
@@ -174,19 +183,51 @@ export default function App() {
 
   const updateMood = async (mood: string) => {
     if (!user) return;
-    await updateDoc(doc(db, 'users', user.uid), { mood });
+    // Optimistic update
+    const oldMood = user.mood;
+    setUser(prev => prev ? { ...prev, mood } : null);
+    
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { mood });
+    } catch (e) {
+      // Rollback on error
+      setUser(prev => prev ? { ...prev, mood: oldMood } : null);
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
   const updateStatus = async () => {
     if (!user) return;
-    await updateDoc(doc(db, 'users', user.uid), { status: statusInput });
+    const oldStatus = user.status;
+    // Optimistic update
+    setUser(prev => prev ? { ...prev, status: statusInput } : null);
     setIsEditingStatus(false);
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { status: statusInput });
+    } catch (e) {
+      // Rollback
+      setUser(prev => prev ? { ...prev, status: oldStatus } : null);
+      setStatusInput(oldStatus || '');
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
   const updateLocation = async () => {
     if (!user) return;
-    await updateDoc(doc(db, 'users', user.uid), { location: locationInput });
+    const oldLocation = user.location;
+    // Optimistic update
+    setUser(prev => prev ? { ...prev, location: locationInput } : null);
     setIsEditingLocation(false);
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { location: locationInput });
+    } catch (e) {
+      // Rollback
+      setUser(prev => prev ? { ...prev, location: oldLocation } : null);
+      setLocationInput(oldLocation || '');
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
   const addTierItem = async () => {
@@ -196,15 +237,37 @@ export default function App() {
       label: tierItemLabel,
       tier: tierItemLevel
     };
-    const newList = [...(user.tierList || []), newItem];
-    await updateDoc(doc(db, 'users', user.uid), { tierList: newList });
+    const oldList = user.tierList || [];
+    const newList = [...oldList, newItem];
+    
+    // Optimistic update
+    setUser(prev => prev ? { ...prev, tierList: newList } : null);
     setTierItemLabel('');
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { tierList: newList });
+    } catch (e) {
+      // Rollback
+      setUser(prev => prev ? { ...prev, tierList: oldList } : null);
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
   const removeTierItem = async (id: string) => {
     if (!user) return;
-    const newList = (user.tierList || []).filter(item => item.id !== id);
-    await updateDoc(doc(db, 'users', user.uid), { tierList: newList });
+    const oldList = user.tierList || [];
+    const newList = oldList.filter(item => item.id !== id);
+    
+    // Optimistic update
+    setUser(prev => prev ? { ...prev, tierList: newList } : null);
+
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { tierList: newList });
+    } catch (e) {
+      // Rollback
+      setUser(prev => prev ? { ...prev, tierList: oldList } : null);
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
   };
 
   if (loading) {
