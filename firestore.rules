@@ -48,9 +48,8 @@ service cloud.firestore {
 
     function isWhitelisted() {
       return isAuthenticated() && 
-             request.auth.token.email != null &&
-             (request.auth.token.email.matches("(?i)glebkarpuhin8@gmail.com") || 
-              request.auth.token.email.matches("(?i)arhipovaaliena78@gmail.com"));
+             (request.auth.token.email.toLowerCase() == "glebkarpuhin8@gmail.com" || 
+              request.auth.token.email.toLowerCase() == "arhipovaaliena78@gmail.com");
     }
 
     function isValidMessage(data) {

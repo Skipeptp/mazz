@@ -101,28 +101,27 @@ export default function App() {
         
         // Listen to own profile
         unsubUserRef.current = onSnapshot(userRef, (docSnap) => {
+          console.log("Own profile snapshot update", docSnap.id, docSnap.data());
           if (docSnap.exists()) {
             const data = docSnap.data();
-            // Safety check: ensure the document belongs to this email
-            if (data.email === email) {
-              const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
-              
-              // Update displayName if it's different from auth (to keep it "as at registration")
-              if (u.displayName && data.displayName !== u.displayName) {
-                updateDoc(userRef, { displayName: u.displayName }).catch(console.error);
-              }
-
-              setUser({ 
-                uid: docSnap.id, 
-                ...data,
-                displayName: u.displayName || data.displayName, // Prefer auth name
-                photoURL: systemAvatar // Force system avatar as requested
-              } as UserProfile);
-              setStatusInput(data.status || '');
-              setLocationInput(data.location || '');
+            const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
+            
+            // Update displayName if it's different from auth (to keep it "as at registration")
+            if (u.displayName && data.displayName !== u.displayName) {
+              updateDoc(userRef, { displayName: u.displayName }).catch(console.error);
             }
+
+            setUser({ 
+              uid: docSnap.id, 
+              ...data,
+              displayName: u.displayName || data.displayName || 'Пользователь',
+              photoURL: systemAvatar
+            } as UserProfile);
+            setStatusInput(data.status || '');
+            setLocationInput(data.location || '');
           } else {
             // Create user if not exists
+            console.log("Creating new user document for", email);
             const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
             setDoc(userRef, {
               email: email,
@@ -141,8 +140,10 @@ export default function App() {
           ? 'arhipovaaliena78@gmail.com' 
           : 'glebkarpuhin8@gmail.com';
         
+        console.log("Listening for partner:", partnerEmail);
         const q = query(collection(db, 'users'), where('email', '==', partnerEmail));
         unsubPartnerRef.current = onSnapshot(q, (snapshot) => {
+          console.log("Partner snapshot update, count:", snapshot.size);
           if (!snapshot.empty) {
             const pDoc = snapshot.docs[0];
             const pData = pDoc.data();
@@ -150,8 +151,10 @@ export default function App() {
             setPartner({ 
               uid: pDoc.id, 
               ...pData,
-              photoURL: pSystemAvatar // Force system avatar for partner too
+              photoURL: pSystemAvatar
             } as UserProfile);
+          } else {
+            console.log("Partner document not found for", partnerEmail);
           }
         }, (e) => handleFirestoreError(e, OperationType.LIST, 'users'));
 
@@ -257,6 +260,95 @@ export default function App() {
             {activeTab === 'notes' && <Notes />}
             {activeTab === 'profile' && (
               <div className="max-w-2xl mx-auto space-y-6">
+                {/* My Profile Card */}
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Мой профиль</label>
+                  <div className="bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
+                    <div className="text-center mb-8">
+                      <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-rose-50 shadow-lg overflow-hidden bg-rose-100 flex items-center justify-center">
+                        <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
+                      </div>
+                      <h2 className="font-serif text-2xl mb-1">{user.displayName}</h2>
+                      <p className="text-stone-400 text-sm">{user.email}</p>
+                    </div>
+
+                    <div className="space-y-6">
+                      {/* Mood Selection */}
+                      <div>
+                        <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Мое настроение</label>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {MOODS.map(m => (
+                            <button
+                              key={m}
+                              onClick={() => updateMood(m)}
+                              className={`text-2xl p-2 rounded-xl transition-all ${user.mood === m ? 'bg-rose-50 scale-110 shadow-inner' : 'hover:bg-stone-50'}`}
+                            >
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Status Editing */}
+                      <div>
+                        <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Чего я хочу сейчас</label>
+                        {isEditingStatus ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={statusInput}
+                              onChange={(e) => setStatusInput(e.target.value)}
+                              className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-200"
+                              placeholder="Напиши свое желание..."
+                            />
+                            <button onClick={updateStatus} className="p-2 bg-stone-800 text-white rounded-xl">
+                              <Check className="w-5 h-5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div 
+                            onClick={() => setIsEditingStatus(true)}
+                            className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
+                          >
+                            <p className="text-stone-600 italic">{user.status || 'Нажми, чтобы добавить статус...'}</p>
+                            <Edit3 className="w-4 h-4 text-stone-300 group-hover:text-rose-400 transition-colors" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Location Editing */}
+                      <div>
+                        <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Где я сейчас</label>
+                        {isEditingLocation ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={locationInput}
+                              onChange={(e) => setLocationInput(e.target.value)}
+                              className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-200"
+                              placeholder="Введи свое местоположение..."
+                            />
+                            <button onClick={updateLocation} className="p-2 bg-stone-800 text-white rounded-xl">
+                              <Check className="w-5 h-5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div 
+                            onClick={() => setIsEditingLocation(true)}
+                            className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-2">
+                              <MapPin className={`w-4 h-4 ${user.location ? 'text-rose-400' : 'text-stone-300'}`} />
+                              <p className="text-stone-600 italic">{user.location || 'Нажми, чтобы добавить местоположение...'}</p>
+                            </div>
+                            <Edit3 className="w-4 h-4 text-stone-300 group-hover:text-rose-400 transition-colors" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Partner Status Card */}
                 {partner && (
                   <div className="space-y-3">
@@ -289,94 +381,6 @@ export default function App() {
                     </motion.div>
                   </div>
                 )}
-
-                {/* My Profile Card */}
-                <div className="space-y-3">
-                  <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Мой профиль</label>
-                  <div className="bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
-                    <div className="text-center mb-8">
-                      <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-rose-50 shadow-lg overflow-hidden bg-rose-100 flex items-center justify-center">
-                        <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
-                      </div>
-                      <h2 className="font-serif text-2xl mb-1">{user.displayName}</h2>
-                      <p className="text-stone-400 text-sm">{user.email}</p>
-                    </div>
-
-                  <div className="space-y-6">
-                    {/* Mood Selection */}
-                    <div>
-                      <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Мое настроение</label>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {MOODS.map(m => (
-                          <button
-                            key={m}
-                            onClick={() => updateMood(m)}
-                            className={`text-2xl p-2 rounded-xl transition-all ${user.mood === m ? 'bg-rose-50 scale-110 shadow-inner' : 'hover:bg-stone-50'}`}
-                          >
-                            {m}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Status Editing */}
-                    <div>
-                      <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Чего я хочу сейчас</label>
-                      {isEditingStatus ? (
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={statusInput}
-                            onChange={(e) => setStatusInput(e.target.value)}
-                            className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-200"
-                            placeholder="Напиши свое желание..."
-                          />
-                          <button onClick={updateStatus} className="p-2 bg-stone-800 text-white rounded-xl">
-                            <Check className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div 
-                          onClick={() => setIsEditingStatus(true)}
-                          className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
-                        >
-                          <p className="text-stone-600 italic">{user.status || 'Нажми, чтобы добавить статус...'}</p>
-                          <Edit3 className="w-4 h-4 text-stone-300 group-hover:text-rose-400 transition-colors" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Location Editing */}
-                    <div>
-                      <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold mb-3 block">Где я сейчас</label>
-                      {isEditingLocation ? (
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={locationInput}
-                            onChange={(e) => setLocationInput(e.target.value)}
-                            className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-200"
-                            placeholder="Введи свое местоположение..."
-                          />
-                          <button onClick={updateLocation} className="p-2 bg-stone-800 text-white rounded-xl">
-                            <Check className="w-5 h-5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div 
-                          onClick={() => setIsEditingLocation(true)}
-                          className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
-                        >
-                          <div className="flex items-center gap-2">
-                            <MapPin className={`w-4 h-4 ${user.location ? 'text-rose-400' : 'text-stone-300'}`} />
-                            <p className="text-stone-600 italic">{user.location || 'Нажми, чтобы добавить местоположение...'}</p>
-                          </div>
-                          <Edit3 className="w-4 h-4 text-stone-300 group-hover:text-rose-400 transition-colors" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
 
                 {/* Tier List Section */}
                 <div className="bg-white p-6 sm:p-8 rounded-[40px] shadow-xl border border-stone-100">
@@ -444,7 +448,6 @@ export default function App() {
                     })}
                   </div>
                 </div>
-              </div>
 
                 {/* Logout Section */}
                 <div className="bg-white p-4 rounded-3xl shadow-sm border border-stone-100 flex justify-center">
