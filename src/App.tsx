@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, handleFirestoreError, OperationType } from './firebase';
+import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, handleFirestoreError, OperationType, getDocFromServer } from './firebase';
 import Auth from './components/Auth';
 import Chat from './components/Chat';
 import Notes from './components/Notes';
@@ -22,9 +22,26 @@ export default function App() {
   const [statusInput, setStatusInput] = useState('');
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [locationInput, setLocationInput] = useState('');
-  const [isEditingTierList, setIsEditingTierList] = useState(false);
+  const [viewingPartnerTierList, setViewingPartnerTierList] = useState(false);
   const [tierItemLabel, setTierItemLabel] = useState('');
   const [tierItemLevel, setTierItemLevel] = useState<TierItem['tier']>('S');
+
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
+
+  useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        console.log("Firestore connection test successful");
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. The client is offline.");
+        }
+      }
+    }
+    testConnection();
+  }, []);
 
   const unsubUserRef = useRef<(() => void) | null>(null);
   const unsubPartnerRef = useRef<(() => void) | null>(null);
@@ -57,9 +74,48 @@ export default function App() {
           return;
         }
 
-        const userRef = doc(db, 'users', u.uid);
+        const userRef = doc(db, 'users', email);
+        const legacyUserRef = doc(db, 'users', u.uid);
         
-        // Listen to own profile
+        // Migration & Initialization
+        const setupUser = async () => {
+          try {
+            const emailDoc = await getDoc(userRef);
+            if (!emailDoc.exists()) {
+              const legacyDoc = await getDoc(legacyUserRef);
+              if (legacyDoc.exists()) {
+                console.log("Migrating legacy UID doc to email doc");
+                await setDoc(userRef, { ...legacyDoc.data(), email });
+                // We keep the legacy doc for a bit just in case, or delete it
+                // await deleteDoc(legacyUserRef); 
+              } else {
+                console.log("Creating new email-based user doc");
+                const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
+                await setDoc(userRef, {
+                  email: email,
+                  displayName: u.displayName || 'Пользователь',
+                  photoURL: systemAvatar,
+                  role: 'user',
+                  mood: '😊',
+                  status: '',
+                  tierList: []
+                });
+              }
+            } else {
+              // Ensure email field exists even in email-based doc
+              if (!emailDoc.data()?.email) {
+                await updateDoc(userRef, { email });
+              }
+            }
+          } catch (e) {
+            console.error("User setup error:", e);
+            handleFirestoreError(e, OperationType.WRITE, `users/${email}`);
+          }
+        };
+
+        setupUser();
+
+        // Listen to own profile (email-based)
         unsubUserRef.current = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
@@ -71,50 +127,40 @@ export default function App() {
               displayName: data.displayName || u.displayName || 'Пользователь',
               photoURL: systemAvatar
             } as UserProfile);
-          } else {
-            // Create user if not exists
-            const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
-            setDoc(userRef, {
-              email: email,
-              displayName: u.displayName || 'Пользователь',
-              photoURL: systemAvatar,
-              role: 'user',
-              mood: '😊',
-              status: '',
-              tierList: []
-            }).catch(e => handleFirestoreError(e, OperationType.CREATE, `users/${u.uid}`));
           }
-        }, (e) => handleFirestoreError(e, OperationType.GET, `users/${u.uid}`));
+          setLoading(false);
+        }, (e) => {
+          console.error("User snapshot error:", e);
+          handleFirestoreError(e, OperationType.GET, `users/${email}`);
+          setLoading(false);
+        });
 
-        // Listen to partner profile
+        // Listen to partner profile (email-based)
         const partnerEmail = email === 'glebkarpuhin8@gmail.com' 
           ? 'arhipovaaliena78@gmail.com' 
           : 'glebkarpuhin8@gmail.com';
         
-        console.log("Setting up listener for partner:", partnerEmail);
-        const q = query(collection(db, 'users'), where('email', '==', partnerEmail));
-        unsubPartnerRef.current = onSnapshot(q, (snapshot) => {
-          console.log(`Partner snapshot update for ${partnerEmail}, count: ${snapshot.size}`);
-          if (!snapshot.empty) {
-            const pDoc = snapshot.docs[0];
-            const pData = pDoc.data();
-            console.log("Partner data found:", pData.displayName);
+        console.log("Setting up direct listener for partner:", partnerEmail);
+        const partnerRef = doc(db, 'users', partnerEmail);
+        unsubPartnerRef.current = onSnapshot(partnerRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const pData = docSnap.data();
+            console.log("Partner data found directly:", pData.displayName);
             const pSystemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${partnerEmail}`;
             setPartner({ 
-              uid: pDoc.id, 
+              uid: docSnap.id, 
               ...pData,
               photoURL: pSystemAvatar
             } as UserProfile);
           } else {
-            console.log("Partner document not found for", partnerEmail);
+            console.log("Partner document not found at", partnerEmail);
             setPartner(null);
           }
         }, (e) => {
           console.error("Partner snapshot error:", e);
-          handleFirestoreError(e, OperationType.LIST, 'users');
+          // Show error even if it's permission-denied to help debug
+          handleFirestoreError(e, OperationType.GET, `users/${partnerEmail}`);
         });
-
-        setLoading(false);
       } else {
         setUser(null);
         setPartner(null);
@@ -139,23 +185,29 @@ export default function App() {
 
   const updateStatus = async () => {
     if (!user) return;
+    setIsSavingStatus(true);
     const newStatus = statusInput;
     try {
       await updateDoc(doc(db, 'users', user.uid), { status: newStatus });
       setIsEditingStatus(false);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    } finally {
+      setIsSavingStatus(false);
     }
   };
 
   const updateLocation = async () => {
     if (!user) return;
+    setIsSavingLocation(true);
     const newLocation = locationInput;
     try {
       await updateDoc(doc(db, 'users', user.uid), { location: newLocation });
       setIsEditingLocation(false);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    } finally {
+      setIsSavingLocation(false);
     }
   };
 
@@ -239,9 +291,12 @@ export default function App() {
             {activeTab === 'profile' && (
               <div className="max-w-2xl mx-auto space-y-6">
                 {/* Partner Status Card */}
-                {partner && (
-                  <div className="space-y-3">
-                    <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Профиль партнера</label>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center px-4">
+                    <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold block">Профиль партнера</label>
+                    {!partner && <span className="text-[9px] text-amber-500 font-bold uppercase tracking-widest animate-pulse">Ожидание подключения...</span>}
+                  </div>
+                  {partner ? (
                     <motion.div 
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -268,8 +323,13 @@ export default function App() {
                         </p>
                       </div>
                     </motion.div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="bg-stone-100/50 p-8 rounded-[32px] border border-stone-200 border-dashed flex flex-col items-center justify-center text-stone-400 text-center">
+                      <Heart className="w-8 h-8 mb-2 opacity-20" />
+                      <p className="text-sm italic">Партнер еще не вошел в приложение или профиль не найден</p>
+                    </div>
+                  )}
+                </div>
 
                 {/* My Profile Card */}
                 <div className="space-y-3">
@@ -316,9 +376,10 @@ export default function App() {
                             <button 
                               type="button"
                               onClick={updateStatus} 
-                              className="p-3 bg-stone-800 text-white rounded-xl hover:bg-stone-700 active:scale-95 transition-all flex items-center justify-center min-w-[44px]"
+                              disabled={isSavingStatus}
+                              className="p-3 bg-stone-800 text-white rounded-xl hover:bg-stone-700 active:scale-95 transition-all flex items-center justify-center min-w-[44px] disabled:opacity-50"
                             >
-                              <Check className="w-5 h-5" />
+                              <Check className={`w-5 h-5 ${isSavingStatus ? 'animate-spin' : ''}`} />
                             </button>
                           </div>
                         ) : (
@@ -348,9 +409,10 @@ export default function App() {
                             <button 
                               type="button"
                               onClick={updateLocation} 
-                              className="p-3 bg-stone-800 text-white rounded-xl hover:bg-stone-700 active:scale-95 transition-all flex items-center justify-center min-w-[44px]"
+                              disabled={isSavingLocation}
+                              className="p-3 bg-stone-800 text-white rounded-xl hover:bg-stone-700 active:scale-95 transition-all flex items-center justify-center min-w-[44px] disabled:opacity-50"
                             >
-                              <Check className="w-5 h-5" />
+                              <Check className={`w-5 h-5 ${isSavingLocation ? 'animate-spin' : ''}`} />
                             </button>
                           </div>
                         ) : (
@@ -374,17 +436,19 @@ export default function App() {
                 <div className="bg-white p-6 sm:p-8 rounded-[40px] shadow-xl border border-stone-100">
                   <div className="flex flex-col gap-4 mb-6">
                     <div className="flex justify-between items-center">
-                      <h3 className="font-serif text-2xl">Тир-лист</h3>
+                      <h3 className="font-serif text-2xl">
+                        {viewingPartnerTierList ? `Тир-лист ${partner?.displayName || 'партнера'}` : 'Мой тир-лист'}
+                      </h3>
                       <button 
-                        onClick={() => setIsEditingTierList(!isEditingTierList)}
-                        className="p-2 px-3 bg-stone-50 text-stone-500 rounded-xl hover:bg-stone-100 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-wider"
+                        onClick={() => setViewingPartnerTierList(!viewingPartnerTierList)}
+                        className={`p-2 px-3 rounded-xl transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${viewingPartnerTierList ? 'bg-rose-500 text-white' : 'bg-stone-50 text-stone-500 hover:bg-stone-100'}`}
                       >
                         <List className="w-4 h-4" />
-                        {isEditingTierList ? 'Мой' : (partner?.displayName || 'Её')}
+                        {viewingPartnerTierList ? 'Показать мой' : `Показать ${partner?.displayName || 'её'}`}
                       </button>
                     </div>
                     
-                    {!isEditingTierList && (
+                    {!viewingPartnerTierList && (
                       <div className="flex flex-col sm:flex-row gap-2">
                         <input 
                           type="text" 
@@ -411,7 +475,7 @@ export default function App() {
 
                   <div className="space-y-4">
                     {TIERS.map(tier => {
-                      const items = (isEditingTierList ? partner?.tierList : user.tierList)?.filter(i => i.tier === tier) || [];
+                      const items = (viewingPartnerTierList ? partner?.tierList : user.tierList)?.filter(i => i.tier === tier) || [];
                       return (
                         <div key={tier} className="flex gap-4 items-center">
                           <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-bold text-white shadow-sm shrink-0
@@ -422,7 +486,7 @@ export default function App() {
                             {items.map(item => (
                               <div key={item.id} className="px-3 py-1 bg-stone-50 border border-stone-100 rounded-full text-sm flex items-center gap-2 group">
                                 {item.label}
-                                {!isEditingTierList && (
+                                {!viewingPartnerTierList && (
                                   <button onClick={() => removeTierItem(item.id)} className="text-stone-300 hover:text-rose-500 transition-colors">
                                     <X className="w-3 h-3" />
                                   </button>

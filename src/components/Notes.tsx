@@ -20,6 +20,7 @@ export default function Notes() {
     type: 'text' as 'text' | 'list',
     items: [] as { id: string; text: string; completed: boolean }[]
   });
+  const [isSaving, setIsSaving] = useState(false);
   const [newItemText, setNewItemText] = useState('');
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function Notes() {
     if (newNote.type === 'list' && newNote.items.length === 0) return;
     if (!auth.currentUser) return;
 
+    setIsSaving(true);
     try {
       await addDoc(collection(db, 'notes'), {
         ...newNote,
@@ -55,6 +57,8 @@ export default function Notes() {
       setIsAdding(false);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'notes');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -197,10 +201,11 @@ export default function Notes() {
                 </div>
                 <button
                   onClick={addNote}
-                  className="px-6 py-2 bg-stone-800 text-white rounded-full flex items-center gap-2"
+                  disabled={isSaving}
+                  className="px-6 py-2 bg-stone-800 text-white rounded-full flex items-center gap-2 disabled:opacity-50"
                 >
-                  <Check className="w-4 h-4" />
-                  Сохранить
+                  <Check className={`w-4 h-4 ${isSaving ? 'animate-spin' : ''}`} />
+                  {isSaving ? 'Сохранение...' : 'Сохранить'}
                 </button>
               </div>
             </div>
