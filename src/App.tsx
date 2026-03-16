@@ -260,6 +260,39 @@ export default function App() {
             {activeTab === 'notes' && <Notes />}
             {activeTab === 'profile' && (
               <div className="max-w-2xl mx-auto space-y-6">
+                {/* Partner Status Card */}
+                {partner && (
+                  <div className="space-y-3">
+                    <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Профиль партнера</label>
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="bg-white p-6 rounded-[32px] shadow-sm border border-stone-100 flex items-center gap-4"
+                    >
+                      <div className="relative">
+                        <img src={partner.photoURL} alt={partner.displayName} className="w-16 h-16 rounded-full border-2 border-rose-100" />
+                        <div className="absolute -bottom-1 -right-1 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xl">
+                          {partner.mood || '😊'}
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-serif text-lg">{partner.displayName} сейчас...</h3>
+                          {partner.location && (
+                            <div className="flex items-center gap-1 text-rose-400 text-[10px] font-bold uppercase tracking-wider bg-rose-50 px-2 py-1 rounded-full">
+                              <MapPin className="w-3 h-3" />
+                              {partner.location}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-stone-500 italic text-sm">
+                          {partner.status || 'Просто наслаждается моментом'}
+                        </p>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+
                 {/* My Profile Card */}
                 <div className="space-y-3">
                   <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Мой профиль</label>
@@ -348,39 +381,6 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-
-                {/* Partner Status Card */}
-                {partner && (
-                  <div className="space-y-3">
-                    <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Профиль партнера</label>
-                    <motion.div 
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="bg-white p-6 rounded-[32px] shadow-sm border border-stone-100 flex items-center gap-4"
-                    >
-                      <div className="relative">
-                        <img src={partner.photoURL} alt={partner.displayName} className="w-16 h-16 rounded-full border-2 border-rose-100" />
-                        <div className="absolute -bottom-1 -right-1 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xl">
-                          {partner.mood || '😊'}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-serif text-lg">{partner.displayName} сейчас...</h3>
-                          {partner.location && (
-                            <div className="flex items-center gap-1 text-rose-400 text-[10px] font-bold uppercase tracking-wider bg-rose-50 px-2 py-1 rounded-full">
-                              <MapPin className="w-3 h-3" />
-                              {partner.location}
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-stone-500 italic text-sm">
-                          {partner.status || 'Просто наслаждается моментом'}
-                        </p>
-                      </div>
-                    </motion.div>
-                  </div>
-                )}
 
                 {/* Tier List Section */}
                 <div className="bg-white p-6 sm:p-8 rounded-[40px] shadow-xl border border-stone-100">

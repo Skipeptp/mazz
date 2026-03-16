@@ -80,11 +80,10 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.keys().hasAll(['email', 'displayName', 'photoURL', 'role']) &&
-             data.email is string &&
+      return data.email is string &&
              data.displayName is string &&
-             data.photoURL is string &&
-             data.role in ['user', 'admin'] &&
+             (!('photoURL' in data) || data.photoURL is string) &&
+             (!('role' in data) || data.role in ['user', 'admin']) &&
              (!('mood' in data) || (data.mood is string && data.mood.size() <= 10)) &&
              (!('status' in data) || (data.status is string && data.status.size() <= 200)) &&
              (!('location' in data) || (data.location is string && data.location.size() <= 100)) &&
@@ -97,8 +96,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isWhitelisted() && isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
-      allow update: if isWhitelisted() && ((isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin());
+      allow create: if isWhitelisted() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isWhitelisted() && (isOwner(userId) || isAdmin());
     }
 
     match /messages/{messageId} {
