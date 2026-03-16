@@ -100,11 +100,27 @@ export default function App() {
         const userRef = doc(db, 'users', u.uid);
         
         // Listen to own profile
-        unsubUserRef.current = onSnapshot(userRef, (doc) => {
-          if (doc.exists()) {
-            setUser({ uid: doc.id, ...doc.data() } as UserProfile);
-            setStatusInput(doc.data().status || '');
-            setLocationInput(doc.data().location || '');
+        unsubUserRef.current = onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Safety check: ensure the document belongs to this email
+            if (data.email === email) {
+              const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
+              
+              // Update displayName if it's different from auth (to keep it "as at registration")
+              if (u.displayName && data.displayName !== u.displayName) {
+                updateDoc(userRef, { displayName: u.displayName }).catch(console.error);
+              }
+
+              setUser({ 
+                uid: docSnap.id, 
+                ...data,
+                displayName: u.displayName || data.displayName, // Prefer auth name
+                photoURL: systemAvatar // Force system avatar as requested
+              } as UserProfile);
+              setStatusInput(data.status || '');
+              setLocationInput(data.location || '');
+            }
           } else {
             // Create user if not exists
             const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
@@ -129,7 +145,13 @@ export default function App() {
         unsubPartnerRef.current = onSnapshot(q, (snapshot) => {
           if (!snapshot.empty) {
             const pDoc = snapshot.docs[0];
-            setPartner({ uid: pDoc.id, ...pDoc.data() } as UserProfile);
+            const pData = pDoc.data();
+            const pSystemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${partnerEmail}`;
+            setPartner({ 
+              uid: pDoc.id, 
+              ...pData,
+              photoURL: pSystemAvatar // Force system avatar for partner too
+            } as UserProfile);
           }
         }, (e) => handleFirestoreError(e, OperationType.LIST, 'users'));
 

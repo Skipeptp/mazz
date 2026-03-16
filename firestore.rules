@@ -43,10 +43,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() &&
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email != null && 
-          request.auth.token.email.matches("(?i)glebkarpuhin8@gmail.com") && 
-          request.auth.token.email_verified == true));
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
 
     function isWhitelisted() {
@@ -115,7 +112,7 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isWhitelisted() && isValidNote(request.resource.data) && request.resource.data.authorId == request.auth.uid;
       allow update: if isWhitelisted() && isValidNoteUpdate(request.resource.data, resource.data);
-      allow delete: if isWhitelisted() && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow delete: if isWhitelisted();
     }
 
     match /test/connection {
