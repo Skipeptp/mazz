@@ -3,11 +3,12 @@ import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, 
 import Auth from './components/Auth';
 import Chat from './components/Chat';
 import Notes from './components/Notes';
-import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X, MapPin, Check } from 'lucide-react';
+import Horoscope from './components/Horoscope';
+import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X, MapPin, Check, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, TierItem } from './types';
 
-type Tab = 'chat' | 'notes' | 'profile';
+type Tab = 'chat' | 'notes' | 'profile' | 'horoscope';
 
 const MOODS = ['😊', '🥰', '😴', '🤔', '😢', '😤', '🥳', '🤒', '😇', '😎'];
 const TIERS: TierItem['tier'][] = ['S', 'A', 'B', 'C', 'D'];
@@ -269,6 +270,12 @@ export default function App() {
           label="Заметки"
         />
         <NavButton 
+          active={activeTab === 'horoscope'} 
+          onClick={() => setActiveTab('horoscope')} 
+          icon={<Sparkles className="w-5 h-5" />} 
+          label="Звезды"
+        />
+        <NavButton 
           active={activeTab === 'profile'} 
           onClick={() => setActiveTab('profile')} 
           icon={<User className="w-5 h-5" />} 
@@ -288,6 +295,7 @@ export default function App() {
           >
             {activeTab === 'chat' && <Chat />}
             {activeTab === 'notes' && <Notes />}
+            {activeTab === 'horoscope' && <Horoscope />}
             {activeTab === 'profile' && (
               <div className="max-w-2xl mx-auto space-y-6">
                 {/* Partner Status Card */}

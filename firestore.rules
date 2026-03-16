@@ -123,6 +123,11 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    match /horoscopes/{date} {
+      allow read: if isAuthenticated();
+      allow write: if isWhitelisted();
+    }
+
     match /test/connection {
       allow read: if true;
     }

@@ -51,6 +51,19 @@
         "color": { "type": "string" }
       },
       "required": ["content", "authorId", "authorName", "timestamp"]
+    },
+    "DailyHoroscope": {
+      "title": "DailyHoroscope",
+      "description": "Cached daily horoscope data for the couple.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "YYYY-MM-DD format" },
+        "virgo": { "type": "object" },
+        "aries": { "type": "object" },
+        "couple": { "type": "object" },
+        "question": { "type": "string" }
+      },
+      "required": ["date", "virgo", "aries", "couple", "question"]
     }
   },
   "firestore": {
@@ -65,6 +78,10 @@
     "notes/{noteId}": {
       "schema": "Note",
       "description": "Shared notes collection"
+    },
+    "horoscopes/{date}": {
+      "schema": "DailyHoroscope",
+      "description": "Daily cached horoscopes"
     }
   }
 }
