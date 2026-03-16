@@ -47,9 +47,13 @@ service cloud.firestore {
     }
 
     function isWhitelisted() {
+      let email = request.auth.token.email;
+      let identities = request.auth.token.firebase.identities;
       return isAuthenticated() && 
-             (request.auth.token.email.toLowerCase() == "glebkarpuhin8@gmail.com" || 
-              request.auth.token.email.toLowerCase() == "arhipovaaliena78@gmail.com");
+             (
+               (email != null && (email.toLowerCase() == "glebkarpuhin8@gmail.com" || email.toLowerCase() == "arhipovaaliena78@gmail.com")) ||
+               ('email' in identities && (identities.email[0].toLowerCase() == "glebkarpuhin8@gmail.com" || identities.email[0].toLowerCase() == "arhipovaaliena78@gmail.com"))
+             );
     }
 
     function isValidMessage(data) {
@@ -81,13 +85,12 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.email is string &&
-             data.displayName is string &&
-             (!('photoURL' in data) || data.photoURL is string) &&
-             (!('role' in data) || data.role in ['user', 'admin']) &&
-             (!('mood' in data) || (data.mood is string && data.mood.size() <= 10)) &&
-             (!('status' in data) || (data.status is string && data.status.size() <= 200)) &&
-             (!('location' in data) || (data.location is string && data.location.size() <= 100)) &&
-             (!('tierList' in data) || (data.tierList is list));
+             (data.email.toLowerCase() == "glebkarpuhin8@gmail.com" || data.email.toLowerCase() == "arhipovaaliena78@gmail.com") &&
+             data.displayName is string;
+    }
+
+    function emailUnchanged() {
+      return request.resource.data.email == resource.data.email;
     }
 
     // ===============================================================
@@ -97,7 +100,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isWhitelisted() && isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isWhitelisted() && (isOwner(userId) || isAdmin());
+      allow update: if isOwner(userId);
     }
 
     match /messages/{messageId} {

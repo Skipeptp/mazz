@@ -3,7 +3,7 @@ import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, 
 import Auth from './components/Auth';
 import Chat from './components/Chat';
 import Notes from './components/Notes';
-import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X, MapPin } from 'lucide-react';
+import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X, MapPin, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, TierItem } from './types';
 
@@ -78,6 +78,16 @@ export default function App() {
 
   const unsubUserRef = useRef<(() => void) | null>(null);
   const unsubPartnerRef = useRef<(() => void) | null>(null);
+  // Sync inputs with user data ONLY when starting to edit
+  const startEditingStatus = () => {
+    setStatusInput(user?.status || '');
+    setIsEditingStatus(true);
+  };
+
+  const startEditingLocation = () => {
+    setLocationInput(user?.location || '');
+    setIsEditingLocation(true);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -105,30 +115,12 @@ export default function App() {
             const data = docSnap.data();
             const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
             
-            // Update displayName if it's different from auth (to keep it "as at registration")
-            if (u.displayName && data.displayName !== u.displayName) {
-              updateDoc(userRef, { displayName: u.displayName }).catch(e => 
-                handleFirestoreError(e, OperationType.UPDATE, `users/${u.uid}`)
-              );
-            }
-
-            setUser(prev => {
-              const newUser = { 
-                uid: docSnap.id, 
-                ...data,
-                displayName: u.displayName || data.displayName || 'Пользователь',
-                photoURL: systemAvatar
-              } as UserProfile;
-              return newUser;
-            });
-
-            // Only update inputs if NOT currently editing to prevent jumping/resetting
-            if (!isEditingStatus) {
-              setStatusInput(data.status || '');
-            }
-            if (!isEditingLocation) {
-              setLocationInput(data.location || '');
-            }
+            setUser({ 
+              uid: docSnap.id, 
+              ...data,
+              displayName: data.displayName || u.displayName || 'Пользователь',
+              photoURL: systemAvatar
+            } as UserProfile);
           } else {
             // Create user if not exists
             const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
@@ -183,49 +175,31 @@ export default function App() {
 
   const updateMood = async (mood: string) => {
     if (!user) return;
-    // Optimistic update
-    const oldMood = user.mood;
-    setUser(prev => prev ? { ...prev, mood } : null);
-    
     try {
       await updateDoc(doc(db, 'users', user.uid), { mood });
     } catch (e) {
-      // Rollback on error
-      setUser(prev => prev ? { ...prev, mood: oldMood } : null);
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
 
   const updateStatus = async () => {
     if (!user) return;
-    const oldStatus = user.status;
-    // Optimistic update
-    setUser(prev => prev ? { ...prev, status: statusInput } : null);
-    setIsEditingStatus(false);
-
+    const newStatus = statusInput;
     try {
-      await updateDoc(doc(db, 'users', user.uid), { status: statusInput });
+      await updateDoc(doc(db, 'users', user.uid), { status: newStatus });
+      setIsEditingStatus(false);
     } catch (e) {
-      // Rollback
-      setUser(prev => prev ? { ...prev, status: oldStatus } : null);
-      setStatusInput(oldStatus || '');
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
 
   const updateLocation = async () => {
     if (!user) return;
-    const oldLocation = user.location;
-    // Optimistic update
-    setUser(prev => prev ? { ...prev, location: locationInput } : null);
-    setIsEditingLocation(false);
-
+    const newLocation = locationInput;
     try {
-      await updateDoc(doc(db, 'users', user.uid), { location: locationInput });
+      await updateDoc(doc(db, 'users', user.uid), { location: newLocation });
+      setIsEditingLocation(false);
     } catch (e) {
-      // Rollback
-      setUser(prev => prev ? { ...prev, location: oldLocation } : null);
-      setLocationInput(oldLocation || '');
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
@@ -237,35 +211,21 @@ export default function App() {
       label: tierItemLabel,
       tier: tierItemLevel
     };
-    const oldList = user.tierList || [];
-    const newList = [...oldList, newItem];
-    
-    // Optimistic update
-    setUser(prev => prev ? { ...prev, tierList: newList } : null);
+    const newList = [...(user.tierList || []), newItem];
     setTierItemLabel('');
-
     try {
       await updateDoc(doc(db, 'users', user.uid), { tierList: newList });
     } catch (e) {
-      // Rollback
-      setUser(prev => prev ? { ...prev, tierList: oldList } : null);
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
 
   const removeTierItem = async (id: string) => {
     if (!user) return;
-    const oldList = user.tierList || [];
-    const newList = oldList.filter(item => item.id !== id);
-    
-    // Optimistic update
-    setUser(prev => prev ? { ...prev, tierList: newList } : null);
-
+    const newList = (user.tierList || []).filter(item => item.id !== id);
     try {
       await updateDoc(doc(db, 'users', user.uid), { tierList: newList });
     } catch (e) {
-      // Rollback
-      setUser(prev => prev ? { ...prev, tierList: oldList } : null);
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
@@ -396,14 +356,19 @@ export default function App() {
                               onChange={(e) => setStatusInput(e.target.value)}
                               className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-200"
                               placeholder="Напиши свое желание..."
+                              autoFocus
                             />
-                            <button onClick={updateStatus} className="p-2 bg-stone-800 text-white rounded-xl">
+                            <button 
+                              type="button"
+                              onClick={updateStatus} 
+                              className="p-3 bg-stone-800 text-white rounded-xl hover:bg-stone-700 active:scale-95 transition-all flex items-center justify-center min-w-[44px]"
+                            >
                               <Check className="w-5 h-5" />
                             </button>
                           </div>
                         ) : (
                           <div 
-                            onClick={() => setIsEditingStatus(true)}
+                            onClick={startEditingStatus}
                             className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
                           >
                             <p className="text-stone-600 italic">{user.status || 'Нажми, чтобы добавить статус...'}</p>
@@ -423,14 +388,19 @@ export default function App() {
                               onChange={(e) => setLocationInput(e.target.value)}
                               className="flex-1 px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-200"
                               placeholder="Введи свое местоположение..."
+                              autoFocus
                             />
-                            <button onClick={updateLocation} className="p-2 bg-stone-800 text-white rounded-xl">
+                            <button 
+                              type="button"
+                              onClick={updateLocation} 
+                              className="p-3 bg-stone-800 text-white rounded-xl hover:bg-stone-700 active:scale-95 transition-all flex items-center justify-center min-w-[44px]"
+                            >
                               <Check className="w-5 h-5" />
                             </button>
                           </div>
                         ) : (
                           <div 
-                            onClick={() => setIsEditingLocation(true)}
+                            onClick={startEditingLocation}
                             className="p-4 bg-stone-50 rounded-2xl flex items-center justify-between cursor-pointer group"
                           >
                             <div className="flex items-center gap-2">
@@ -534,6 +504,7 @@ export default function App() {
 function NavButton({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`flex flex-col items-center gap-1 transition-all ${active ? 'text-rose-500 scale-110' : 'text-stone-400 hover:text-stone-600'}`}
     >
@@ -542,8 +513,4 @@ function NavButton({ active, onClick, icon, label }: { active: boolean, onClick:
       {active && <motion.div layoutId="nav-dot" className="w-1 h-1 bg-rose-500 rounded-full mt-0.5" />}
     </button>
   );
-}
-
-function Check({ className }: { className?: string }) {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"/></svg>;
 }
