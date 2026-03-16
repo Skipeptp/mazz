@@ -30,6 +30,7 @@ export default function Notes() {
       setNotes(nts);
     }, (error) => {
       console.error("Notes error:", error);
+      handleFirestoreError(error, OperationType.LIST, 'notes');
     });
     return () => unsubscribe();
   }, []);

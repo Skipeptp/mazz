@@ -36,28 +36,36 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function getEmail() {
+      let tokenEmail = request.auth.token.get('email', '');
+      let identityEmail = request.auth.token.get('firebase', {}).get('identities', {}).get('email', [''])[0];
+      let email = tokenEmail != '' ? tokenEmail : identityEmail;
+      return email.toLowerCase();
+    }
+
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      let email = getEmail();
+      return isAuthenticated() && (request.auth.uid == userId || email == userId.toLowerCase());
     }
 
     function isAdmin() {
+      let email = getEmail();
       return isAuthenticated() &&
         ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-         request.auth.token.get('email', '') == "glebkarpuhin8@gmail.com");
+         email == "glebkarpuhin8@gmail.com" ||
+         request.auth.uid == "icJVZJAGunVRp81EFYPsEOzLvrP2");
     }
 
     function isWhitelisted() {
-      let email = request.auth.token.get('email', '').toLowerCase();
-      let identities = request.auth.token.firebase.get('identities', {});
-      let identityEmail = identities.get('email', [''])[0].toLowerCase();
+      let email = getEmail();
+      let tokenEmail = request.auth.token.get('email', '').toLowerCase();
       return isAuthenticated() && 
-             (
-               email == "glebkarpuhin8@gmail.com" || 
-               email == "arhipovaaliena78@gmail.com" ||
-               identityEmail == "glebkarpuhin8@gmail.com" ||
-               identityEmail == "arhipovaaliena78@gmail.com"
-             );
+             (email == "glebkarpuhin8@gmail.com" || 
+              email == "arhipovaaliena78@gmail.com" ||
+              tokenEmail == "glebkarpuhin8@gmail.com" ||
+              tokenEmail == "arhipovaaliena78@gmail.com" ||
+              request.auth.uid == "icJVZJAGunVRp81EFYPsEOzLvrP2");
     }
 
     function isValidMessage(data) {
@@ -88,9 +96,8 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.email is string &&
-             (data.email.toLowerCase() == "glebkarpuhin8@gmail.com" || data.email.toLowerCase() == "arhipovaaliena78@gmail.com") &&
-             data.displayName is string;
+      let email = data.get('email', '').toLowerCase();
+      return email == "glebkarpuhin8@gmail.com" || email == "arhipovaaliena78@gmail.com";
     }
 
     function emailUnchanged() {
@@ -103,21 +110,17 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read, list: if isAuthenticated();
-      allow create: if isWhitelisted() && isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId);
+      allow write: if isAuthenticated();
     }
 
     match /messages/{messageId} {
-      allow read: if isAuthenticated();
-      allow create: if isWhitelisted() && isValidMessage(request.resource.data);
-      allow delete: if isWhitelisted();
+      allow read, list: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
 
     match /notes/{noteId} {
-      allow read: if isAuthenticated();
-      allow create: if isWhitelisted() && isValidNote(request.resource.data) && request.resource.data.authorId == request.auth.uid;
-      allow update: if isWhitelisted() && isValidNoteUpdate(request.resource.data, resource.data);
-      allow delete: if isWhitelisted();
+      allow read, list: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
 
     match /test/connection {
