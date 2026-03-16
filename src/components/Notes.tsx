@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, updateDoc } from '../firebase';
+import { auth, db, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, updateDoc, handleFirestoreError, OperationType } from '../firebase';
 import { Note } from '../types';
 import { format } from 'date-fns';
 import { Plus, Trash2, X, Check, StickyNote, ListTodo, Square, CheckSquare } from 'lucide-react';
@@ -54,7 +54,7 @@ export default function Notes() {
       });
       setIsAdding(false);
     } catch (error) {
-      console.error("Error adding note:", error);
+      handleFirestoreError(error, OperationType.CREATE, 'notes');
     }
   };
 
@@ -62,7 +62,7 @@ export default function Notes() {
     try {
       await deleteDoc(doc(db, 'notes', id));
     } catch (error) {
-      console.error("Error deleting note:", error);
+      handleFirestoreError(error, OperationType.DELETE, `notes/${id}`);
     }
   };
 
@@ -77,7 +77,7 @@ export default function Notes() {
     try {
       await updateDoc(doc(db, 'notes', noteId), { items: updatedItems });
     } catch (error) {
-      console.error("Error updating item:", error);
+      handleFirestoreError(error, OperationType.UPDATE, `notes/${noteId}`);
     }
   };
 

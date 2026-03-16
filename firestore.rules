@@ -42,17 +42,21 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         request.auth.token.get('email', '') == "glebkarpuhin8@gmail.com");
     }
 
     function isWhitelisted() {
-      let email = request.auth.token.email;
-      let identities = request.auth.token.firebase.identities;
+      let email = request.auth.token.get('email', '').toLowerCase();
+      let identities = request.auth.token.firebase.get('identities', {});
+      let identityEmail = identities.get('email', [''])[0].toLowerCase();
       return isAuthenticated() && 
              (
-               (email != null && (email.toLowerCase() == "glebkarpuhin8@gmail.com" || email.toLowerCase() == "arhipovaaliena78@gmail.com")) ||
-               ('email' in identities && (identities.email[0].toLowerCase() == "glebkarpuhin8@gmail.com" || identities.email[0].toLowerCase() == "arhipovaaliena78@gmail.com"))
+               email == "glebkarpuhin8@gmail.com" || 
+               email == "arhipovaaliena78@gmail.com" ||
+               identityEmail == "glebkarpuhin8@gmail.com" ||
+               identityEmail == "arhipovaaliena78@gmail.com"
              );
     }
 
@@ -98,7 +102,7 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read, list: if isAuthenticated();
       allow create: if isWhitelisted() && isOwner(userId) && isValidUser(request.resource.data);
       allow update: if isOwner(userId);
     }

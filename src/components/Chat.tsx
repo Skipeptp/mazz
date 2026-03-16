@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, db, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, getDocs, where, deleteDoc, doc, writeBatch } from '../firebase';
+import { auth, db, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, getDocs, where, deleteDoc, doc, writeBatch, handleFirestoreError, OperationType } from '../firebase';
 import { Message } from '../types';
 import { format, startOfDay } from 'date-fns';
 import { Send, Heart, Trash2 } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function Chat() {
           console.log('Old messages cleaned up');
         }
       } catch (error) {
-        console.error("Cleanup error:", error);
+        handleFirestoreError(error, OperationType.DELETE, 'messages');
       }
     };
 
@@ -67,7 +67,7 @@ export default function Chat() {
       });
       setNewMessage('');
     } catch (error) {
-      console.error("Error sending message:", error);
+      handleFirestoreError(error, OperationType.CREATE, 'messages');
     }
   };
 

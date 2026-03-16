@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot } from './firebase';
+import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, handleFirestoreError, OperationType } from './firebase';
 import Auth from './components/Auth';
 import Chat from './components/Chat';
 import Notes from './components/Notes';
@@ -12,56 +12,6 @@ type Tab = 'chat' | 'notes' | 'profile';
 const MOODS = ['😊', '🥰', '😴', '🤔', '😢', '😤', '🥳', '🤒', '😇', '😎'];
 const TIERS: TierItem['tier'][] = ['S', 'A', 'B', 'C', 'D'];
 
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId: string | undefined;
-    email: string | null | undefined;
-    emailVerified: boolean | undefined;
-    isAnonymous: boolean | undefined;
-    tenantId: string | null | undefined;
-    providerInfo: {
-      providerId: string;
-      displayName: string | null;
-      email: string | null;
-      photoUrl: string | null;
-    }[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData.map(provider => ({
-        providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  // We don't throw here to avoid crashing the whole app, but we log it clearly
-}
 
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -141,13 +91,14 @@ export default function App() {
           ? 'arhipovaaliena78@gmail.com' 
           : 'glebkarpuhin8@gmail.com';
         
-        console.log("Listening for partner:", partnerEmail);
+        console.log("Setting up listener for partner:", partnerEmail);
         const q = query(collection(db, 'users'), where('email', '==', partnerEmail));
         unsubPartnerRef.current = onSnapshot(q, (snapshot) => {
-          console.log("Partner snapshot update, count:", snapshot.size);
+          console.log(`Partner snapshot update for ${partnerEmail}, count: ${snapshot.size}`);
           if (!snapshot.empty) {
             const pDoc = snapshot.docs[0];
             const pData = pDoc.data();
+            console.log("Partner data found:", pData.displayName);
             const pSystemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${partnerEmail}`;
             setPartner({ 
               uid: pDoc.id, 
@@ -156,8 +107,12 @@ export default function App() {
             } as UserProfile);
           } else {
             console.log("Partner document not found for", partnerEmail);
+            setPartner(null);
           }
-        }, (e) => handleFirestoreError(e, OperationType.LIST, 'users'));
+        }, (e) => {
+          console.error("Partner snapshot error:", e);
+          handleFirestoreError(e, OperationType.LIST, 'users');
+        });
 
         setLoading(false);
       } else {
