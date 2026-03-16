@@ -32,7 +32,12 @@ export default function Horoscope() {
     setLoading(true);
     setError(null);
     
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // Get local date in YYYY-MM-DD format
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
     
     try {
       // 1. Try to get from Firestore first
