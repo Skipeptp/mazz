@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth, onAuthStateChanged, signOut, db, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot } from './firebase';
 import Auth from './components/Auth';
 import Chat from './components/Chat';
@@ -76,11 +76,21 @@ export default function App() {
   const [tierItemLabel, setTierItemLabel] = useState('');
   const [tierItemLevel, setTierItemLevel] = useState<TierItem['tier']>('S');
 
+  const unsubUserRef = useRef<(() => void) | null>(null);
+  const unsubPartnerRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      // Cleanup previous listeners if any
+      unsubUserRef.current?.();
+      unsubPartnerRef.current?.();
+      unsubUserRef.current = null;
+      unsubPartnerRef.current = null;
+
       if (u) {
+        const email = u.email?.toLowerCase();
         const WHITELIST = ['glebkarpuhin8@gmail.com', 'arhipovaaliena78@gmail.com'];
-        if (!u.email || !WHITELIST.includes(u.email.toLowerCase())) {
+        if (!email || !WHITELIST.includes(email)) {
           await signOut(auth);
           setUser(null);
           setLoading(false);
@@ -90,17 +100,18 @@ export default function App() {
         const userRef = doc(db, 'users', u.uid);
         
         // Listen to own profile
-        const unsubUser = onSnapshot(userRef, (doc) => {
+        unsubUserRef.current = onSnapshot(userRef, (doc) => {
           if (doc.exists()) {
             setUser({ uid: doc.id, ...doc.data() } as UserProfile);
             setStatusInput(doc.data().status || '');
             setLocationInput(doc.data().location || '');
           } else {
             // Create user if not exists
+            const systemAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`;
             setDoc(userRef, {
-              email: u.email,
+              email: email,
               displayName: u.displayName || 'Пользователь',
-              photoURL: u.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.email}`,
+              photoURL: systemAvatar,
               role: 'user',
               mood: '😊',
               status: '',
@@ -110,12 +121,12 @@ export default function App() {
         }, (e) => handleFirestoreError(e, OperationType.GET, `users/${u.uid}`));
 
         // Listen to partner profile
-        const partnerEmail = u.email.toLowerCase() === 'glebkarpuhin8@gmail.com' 
+        const partnerEmail = email === 'glebkarpuhin8@gmail.com' 
           ? 'arhipovaaliena78@gmail.com' 
           : 'glebkarpuhin8@gmail.com';
         
         const q = query(collection(db, 'users'), where('email', '==', partnerEmail));
-        const unsubPartner = onSnapshot(q, (snapshot) => {
+        unsubPartnerRef.current = onSnapshot(q, (snapshot) => {
           if (!snapshot.empty) {
             const pDoc = snapshot.docs[0];
             setPartner({ uid: pDoc.id, ...pDoc.data() } as UserProfile);
@@ -123,17 +134,17 @@ export default function App() {
         }, (e) => handleFirestoreError(e, OperationType.LIST, 'users'));
 
         setLoading(false);
-        return () => {
-          unsubUser();
-          unsubPartner();
-        };
       } else {
         setUser(null);
         setPartner(null);
         setLoading(false);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubUserRef.current?.();
+      unsubPartnerRef.current?.();
+    };
   }, []);
 
   const updateMood = async (mood: string) => {
@@ -226,43 +237,48 @@ export default function App() {
               <div className="max-w-2xl mx-auto space-y-6">
                 {/* Partner Status Card */}
                 {partner && (
-                  <motion.div 
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="bg-white p-6 rounded-[32px] shadow-sm border border-stone-100 flex items-center gap-4"
-                  >
-                    <div className="relative">
-                      <img src={partner.photoURL} alt={partner.displayName} className="w-16 h-16 rounded-full border-2 border-rose-100" />
-                      <div className="absolute -bottom-1 -right-1 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xl">
-                        {partner.mood || '😊'}
+                  <div className="space-y-3">
+                    <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Профиль партнера</label>
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="bg-white p-6 rounded-[32px] shadow-sm border border-stone-100 flex items-center gap-4"
+                    >
+                      <div className="relative">
+                        <img src={partner.photoURL} alt={partner.displayName} className="w-16 h-16 rounded-full border-2 border-rose-100" />
+                        <div className="absolute -bottom-1 -right-1 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xl">
+                          {partner.mood || '😊'}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-serif text-lg">{partner.displayName} сейчас...</h3>
-                        {partner.location && (
-                          <div className="flex items-center gap-1 text-rose-400 text-[10px] font-bold uppercase tracking-wider bg-rose-50 px-2 py-1 rounded-full">
-                            <MapPin className="w-3 h-3" />
-                            {partner.location}
-                          </div>
-                        )}
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-serif text-lg">{partner.displayName} сейчас...</h3>
+                          {partner.location && (
+                            <div className="flex items-center gap-1 text-rose-400 text-[10px] font-bold uppercase tracking-wider bg-rose-50 px-2 py-1 rounded-full">
+                              <MapPin className="w-3 h-3" />
+                              {partner.location}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-stone-500 italic text-sm">
+                          {partner.status || 'Просто наслаждается моментом'}
+                        </p>
                       </div>
-                      <p className="text-stone-500 italic text-sm">
-                        {partner.status || 'Просто наслаждается моментом'}
-                      </p>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  </div>
                 )}
 
                 {/* My Profile Card */}
-                <div className="bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
-                  <div className="text-center mb-8">
-                    <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-rose-50 shadow-lg overflow-hidden bg-rose-100 flex items-center justify-center">
-                      <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Мой профиль</label>
+                  <div className="bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
+                    <div className="text-center mb-8">
+                      <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-rose-50 shadow-lg overflow-hidden bg-rose-100 flex items-center justify-center">
+                        <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
+                      </div>
+                      <h2 className="font-serif text-2xl mb-1">{user.displayName}</h2>
+                      <p className="text-stone-400 text-sm">{user.email}</p>
                     </div>
-                    <h2 className="font-serif text-2xl mb-1">{user.displayName}</h2>
-                    <p className="text-stone-400 text-sm">{user.email}</p>
-                  </div>
 
                   <div className="space-y-6">
                     {/* Mood Selection */}
@@ -406,6 +422,7 @@ export default function App() {
                     })}
                   </div>
                 </div>
+              </div>
 
                 {/* Logout Section */}
                 <div className="bg-white p-4 rounded-3xl shadow-sm border border-stone-100 flex justify-center">

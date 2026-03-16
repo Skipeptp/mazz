@@ -66,10 +66,21 @@ service cloud.firestore {
     function isValidNote(data) {
       return data.keys().hasAll(['content', 'authorId', 'authorName', 'timestamp']) &&
              data.content is string && data.content.size() <= 5000 &&
-             data.authorId == request.auth.uid &&
+             data.authorId is string &&
              data.timestamp is timestamp &&
              (!('title' in data) || (data.title is string && data.title.size() <= 100)) &&
-             (!('color' in data) || (data.color is string && data.color.size() <= 20));
+             (!('color' in data) || (data.color is string && data.color.size() <= 20)) &&
+             (!('type' in data) || (data.type in ['text', 'list'])) &&
+             (!('items' in data) || (data.items is list));
+    }
+
+    function isValidNoteUpdate(data, oldData) {
+      // Allow updating items (checklist) by anyone whitelisted
+      // But only the author can update content/title/color
+      let isAuthor = request.auth.uid == oldData.authorId;
+      let onlyItemsChanged = data.diff(oldData).affectedKeys().hasOnly(['items']);
+      
+      return isValidNote(data) && (isAuthor || onlyItemsChanged);
     }
 
     function isValidUser(data) {
@@ -80,6 +91,7 @@ service cloud.firestore {
              data.role in ['user', 'admin'] &&
              (!('mood' in data) || (data.mood is string && data.mood.size() <= 10)) &&
              (!('status' in data) || (data.status is string && data.status.size() <= 200)) &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 100)) &&
              (!('tierList' in data) || (data.tierList is list));
     }
 
@@ -96,13 +108,13 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isWhitelisted() && isValidMessage(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isWhitelisted();
     }
 
     match /notes/{noteId} {
       allow read: if isAuthenticated();
-      allow create: if isWhitelisted() && isValidNote(request.resource.data);
-      allow update: if isWhitelisted() && isValidNote(request.resource.data) && (request.resource.data.authorId == resource.data.authorId || isAdmin());
+      allow create: if isWhitelisted() && isValidNote(request.resource.data) && request.resource.data.authorId == request.auth.uid;
+      allow update: if isWhitelisted() && isValidNoteUpdate(request.resource.data, resource.data);
       allow delete: if isWhitelisted() && (resource.data.authorId == request.auth.uid || isAdmin());
     }
 
