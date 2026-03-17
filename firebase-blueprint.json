@@ -64,6 +64,38 @@
         "question": { "type": "string" }
       },
       "required": ["date", "virgo", "aries", "couple", "question"]
+    },
+    "PetState": {
+      "title": "PetState",
+      "description": "Current state of the virtual pet Frosh.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "hunger": { "type": "number", "description": "0-100" },
+        "energy": { "type": "number", "description": "0-100" },
+        "isSleeping": { "type": "boolean" },
+        "lastFed": { "type": "object" },
+        "lastSlept": { "type": "object" },
+        "lastWokeUp": { "type": "object" },
+        "isGone": { "type": "boolean" },
+        "foodAvailable": { "type": "number" },
+        "cooldownUntil": { "type": "object" }
+      },
+      "required": ["name", "hunger", "energy", "isSleeping", "isGone", "foodAvailable"]
+    },
+    "QuizQuestion": {
+      "title": "QuizQuestion",
+      "description": "A question asked by one user to another to earn food.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "answer": { "type": "string" },
+        "fromId": { "type": "string" },
+        "toId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "correct", "incorrect"] },
+        "timestamp": { "type": "object" }
+      },
+      "required": ["text", "answer", "fromId", "toId", "status", "timestamp"]
     }
   },
   "firestore": {
@@ -82,6 +114,14 @@
     "horoscopes/{date}": {
       "schema": "DailyHoroscope",
       "description": "Daily cached horoscopes"
+    },
+    "pet/frosh": {
+      "schema": "PetState",
+      "description": "Singleton state for the pet"
+    },
+    "quizzes/{quizId}": {
+      "schema": "QuizQuestion",
+      "description": "Quiz questions for food"
     }
   }
 }

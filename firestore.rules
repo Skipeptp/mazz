@@ -54,7 +54,8 @@ service cloud.firestore {
         ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
          email == "glebkarpuhin8@gmail.com" ||
-         request.auth.uid == "icJVZJAGunVRp81EFYPsEOzLvrP2");
+         request.auth.uid == "icJVZJAGunVRp81EFYPsEOzLvrP2" ||
+         request.auth.uid == "43ghXsih9jXS1ksVmvwENu0nNxU2");
     }
 
     function isWhitelisted() {
@@ -65,7 +66,8 @@ service cloud.firestore {
               email == "arhipovaaliena78@gmail.com" ||
               tokenEmail == "glebkarpuhin8@gmail.com" ||
               tokenEmail == "arhipovaaliena78@gmail.com" ||
-              request.auth.uid == "icJVZJAGunVRp81EFYPsEOzLvrP2");
+              request.auth.uid == "icJVZJAGunVRp81EFYPsEOzLvrP2" ||
+              request.auth.uid == "43ghXsih9jXS1ksVmvwENu0nNxU2");
     }
 
     function isValidMessage(data) {
@@ -110,7 +112,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read, list: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (request.auth.uid == userId || getEmail() == userId.toLowerCase() || isAdmin() || isWhitelisted());
+      allow delete: if isAdmin();
     }
 
     match /messages/{messageId} {
@@ -124,6 +127,16 @@ service cloud.firestore {
     }
 
     match /horoscopes/{date} {
+      allow read: if isAuthenticated();
+      allow write: if isWhitelisted();
+    }
+
+    match /pet/{petId} {
+      allow read: if isAuthenticated();
+      allow write: if isWhitelisted();
+    }
+
+    match /quizzes/{quizId} {
       allow read: if isAuthenticated();
       allow write: if isWhitelisted();
     }

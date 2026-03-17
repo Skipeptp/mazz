@@ -4,11 +4,12 @@ import Auth from './components/Auth';
 import Chat from './components/Chat';
 import Notes from './components/Notes';
 import Horoscope from './components/Horoscope';
-import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X, MapPin, Check, Sparkles } from 'lucide-react';
+import Pet from './components/Pet';
+import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X, MapPin, Check, Sparkles, Ghost } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, TierItem } from './types';
 
-type Tab = 'chat' | 'notes' | 'profile' | 'horoscope';
+type Tab = 'chat' | 'notes' | 'profile' | 'horoscope' | 'pet';
 
 const MOODS = ['😊', '🥰', '😴', '🤔', '😢', '😤', '🥳', '🤒', '😇', '😎'];
 const TIERS: TierItem['tier'][] = ['S', 'A', 'B', 'C', 'D'];
@@ -30,22 +31,9 @@ export default function App() {
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [isSavingLocation, setIsSavingLocation] = useState(false);
 
-  useEffect(() => {
-    async function testConnection() {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-        console.log("Firestore connection test successful");
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration. The client is offline.");
-        }
-      }
-    }
-    testConnection();
-  }, []);
-
   const unsubUserRef = useRef<(() => void) | null>(null);
   const unsubPartnerRef = useRef<(() => void) | null>(null);
+
   // Sync inputs with user data ONLY when starting to edit
   const startEditingStatus = () => {
     setStatusInput(user?.status || '');
@@ -66,6 +54,13 @@ export default function App() {
       unsubPartnerRef.current = null;
 
       if (u) {
+        // Test connection when authenticated
+        try {
+          await getDocFromServer(doc(db, 'test', 'connection'));
+          console.log("Firestore connection test successful (authenticated)");
+        } catch (error) {
+          console.error("Firestore connection test failed (authenticated):", error);
+        }
         const email = u.email?.toLowerCase();
         const WHITELIST = ['glebkarpuhin8@gmail.com', 'arhipovaaliena78@gmail.com'];
         if (!email || !WHITELIST.includes(email)) {
@@ -276,6 +271,12 @@ export default function App() {
           label="Звезды"
         />
         <NavButton 
+          active={activeTab === 'pet'} 
+          onClick={() => setActiveTab('pet')} 
+          icon={<Ghost className="w-5 h-5" />} 
+          label="Фрош"
+        />
+        <NavButton 
           active={activeTab === 'profile'} 
           onClick={() => setActiveTab('profile')} 
           icon={<User className="w-5 h-5" />} 
@@ -296,6 +297,7 @@ export default function App() {
             {activeTab === 'chat' && <Chat />}
             {activeTab === 'notes' && <Notes />}
             {activeTab === 'horoscope' && <Horoscope />}
+            {activeTab === 'pet' && <Pet />}
             {activeTab === 'profile' && (
               <div className="max-w-2xl mx-auto space-y-6">
                 {/* Partner Status Card */}

@@ -35,3 +35,26 @@ export interface Note {
   type?: 'text' | 'list';
   items?: { id: string; text: string; completed: boolean }[];
 }
+
+export interface PetState {
+  name: string;
+  hunger: number;
+  energy: number;
+  isSleeping: boolean;
+  lastFed?: any;
+  lastSlept?: any;
+  lastWokeUp?: any;
+  isGone: boolean;
+  foodAvailable: number;
+  cooldownUntil?: any;
+}
+
+export interface QuizQuestion {
+  id?: string;
+  text: string;
+  answer: string;
+  fromId: string;
+  toId: string;
+  status: 'pending' | 'correct' | 'incorrect';
+  timestamp: any;
+}
