@@ -273,9 +273,10 @@ export default function App() {
         <NavButton 
           active={activeTab === 'pet'} 
           onClick={() => setActiveTab('pet')} 
-          icon={<Ghost className="w-5 h-5" />} 
-          label="Фрош"
+          icon={<Smile className="w-5 h-5" />} 
+          label="Лисёнок"
         />
+
         <NavButton 
           active={activeTab === 'profile'} 
           onClick={() => setActiveTab('profile')} 
