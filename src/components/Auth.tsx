@@ -41,7 +41,7 @@ export default function Auth() {
       if (err.code === 'auth/email-already-in-use') {
         friendlyMessage = 'This email is already registered. Please sign in instead.';
       } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        friendlyMessage = 'Invalid email or password. Please try again.';
+        friendlyMessage = 'Invalid email or password. If the app was recently reset or remixed, you may need to register (Sign Up) again.';
       } else if (err.code === 'auth/weak-password') {
         friendlyMessage = 'Password is too weak. Please use at least 6 characters.';
       } else if (err.code === 'auth/invalid-email') {

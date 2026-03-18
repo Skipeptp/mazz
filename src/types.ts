@@ -47,6 +47,8 @@ export interface PetState {
   energy: number; // 0-100
   cleanliness: number; // 0-100
   happiness: number; // 0-100
+  foodCount: number;
+  name: string;
   lastAction: string;
   lastActionBy: string;
   isSleeping: boolean;

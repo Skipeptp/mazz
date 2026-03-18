@@ -37,35 +37,27 @@ service cloud.firestore {
     }
 
     function getEmail() {
-      let tokenEmail = request.auth.token.get('email', '');
-      let identityEmail = request.auth.token.get('firebase', {}).get('identities', {}).get('email', [''])[0];
-      let email = tokenEmail != '' ? tokenEmail : identityEmail;
-      return email.toLowerCase();
+      return request.auth.token.email.toLowerCase();
     }
 
     function isOwner(userId) {
-      let email = getEmail();
-      return isAuthenticated() && (request.auth.uid == userId || email == userId.toLowerCase());
+      return isAuthenticated() && (request.auth.uid == userId || getEmail() == userId.toLowerCase());
     }
 
     function isAdmin() {
-      let email = getEmail();
       return isAuthenticated() &&
         ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-         email == "glebkarpuhin8@gmail.com" ||
+         getEmail() == "glebkarpuhin8@gmail.com" ||
          request.auth.uid == "icJVZJAGunVRp81EFYPsEOzLvrP2" ||
          request.auth.uid == "43ghXsih9jXS1ksVmvwENu0nNxU2");
     }
 
     function isWhitelisted() {
       let email = getEmail();
-      let tokenEmail = request.auth.token.get('email', '').toLowerCase();
       return isAuthenticated() && 
              (email == "glebkarpuhin8@gmail.com" || 
               email == "arhipovaaliena78@gmail.com" ||
-              tokenEmail == "glebkarpuhin8@gmail.com" ||
-              tokenEmail == "arhipovaaliena78@gmail.com" ||
               request.auth.uid == "icJVZJAGunVRp81EFYPsEOzLvrP2" ||
               request.auth.uid == "43ghXsih9jXS1ksVmvwENu0nNxU2");
     }
@@ -134,6 +126,13 @@ service cloud.firestore {
     match /pet/{petId} {
       allow read: if isAuthenticated();
       allow write: if isWhitelisted();
+    }
+
+    match /petQuestions/{questionId} {
+      allow read: if isWhitelisted() || (isAuthenticated() && (resource.data.targetEmail == getEmail() || resource.data.createdByEmail == getEmail()));
+      allow create: if isWhitelisted() || (isAuthenticated() && request.resource.data.createdByEmail == getEmail());
+      allow update: if isWhitelisted() || (isAuthenticated() && resource.data.targetEmail == getEmail());
+      allow delete: if isWhitelisted();
     }
 
     match /test/connection {
