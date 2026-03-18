@@ -136,11 +136,6 @@ service cloud.firestore {
       allow write: if isWhitelisted();
     }
 
-    match /quizzes/{quizId} {
-      allow read: if isAuthenticated();
-      allow write: if isWhitelisted();
-    }
-
     match /test/connection {
       allow read: if true;
     }

@@ -24,6 +24,12 @@ export interface Message {
   timestamp: any;
 }
 
+export interface NoteItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 export interface Note {
   id?: string;
   title?: string;
@@ -33,30 +39,17 @@ export interface Note {
   timestamp: any;
   color?: string;
   type?: 'text' | 'list';
-  items?: { id: string; text: string; completed: boolean }[];
+  items?: NoteItem[];
 }
 
 export interface PetState {
-  name: string;
-  hunger: number;
-  energy: number;
+  hunger: number; // 0-100
+  energy: number; // 0-100
+  cleanliness: number; // 0-100
+  happiness: number; // 0-100
+  lastAction: string;
+  lastActionBy: string;
   isSleeping: boolean;
-  lastFed?: any;
-  lastSlept?: any;
-  lastWokeUp?: any;
-  isGone: boolean;
-  foodAvailable: number;
-  cooldownUntil?: any;
-  hungerZeroStart?: any;
-  forestStayStart?: any;
-}
-
-export interface QuizQuestion {
-  id?: string;
-  text: string;
-  answer: string;
-  fromId: string;
-  toId: string;
-  status: 'pending' | 'correct' | 'incorrect';
-  timestamp: any;
+  currentRoom: 'kitchen' | 'bedroom' | 'bathroom' | 'playroom';
+  lastUpdate: any;
 }
