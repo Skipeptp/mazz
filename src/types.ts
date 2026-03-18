@@ -47,6 +47,8 @@ export interface PetState {
   isGone: boolean;
   foodAvailable: number;
   cooldownUntil?: any;
+  hungerZeroStart?: any;
+  forestStayStart?: any;
 }
 
 export interface QuizQuestion {

@@ -4,6 +4,7 @@ import Auth from './components/Auth';
 import Chat from './components/Chat';
 import Notes from './components/Notes';
 import Horoscope from './components/Horoscope';
+// Import Pet component
 import Pet from './components/Pet';
 import { MessageCircle, StickyNote, LogOut, Heart, User, Smile, Edit3, List, Plus, Trash2, X, MapPin, Check, Sparkles, Ghost } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
