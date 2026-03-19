@@ -786,14 +786,24 @@ export default function Pet() {
                   type="text"
                   value={gameInput}
                   onChange={(e) => setGameInput(e.target.value)}
-                  placeholder="Введи 5 чисел в нужном порядке..."
-                  className="w-full px-4 py-2 text-sm rounded-xl bg-stone-50 border border-stone-100 outline-none focus:ring-2 focus:ring-rose-200"
+                  disabled={showSequence}
+                  placeholder={showSequence ? "Сначала запомни числа..." : "Введи 5 чисел в нужном порядке..."}
+                  className={`w-full px-4 py-2 text-sm rounded-xl border outline-none focus:ring-2 transition-all ${
+                    showSequence 
+                      ? "bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed" 
+                      : "bg-stone-50 border-stone-100 focus:ring-rose-200"
+                  }`}
                 />
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={submitGame}
-                    className="flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-xl bg-stone-800 text-white"
+                    disabled={showSequence}
+                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-xl transition-all ${
+                      showSequence
+                        ? "bg-stone-300 text-stone-500 cursor-not-allowed"
+                        : "bg-stone-800 text-white hover:bg-stone-700"
+                    }`}
                   >
                     Проверить
                   </button>
