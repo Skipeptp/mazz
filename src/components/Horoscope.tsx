@@ -4,8 +4,6 @@ import { motion } from 'motion/react';
 import { Sparkles, Moon, Sun, Star, RefreshCw, Heart, HelpCircle } from 'lucide-react';
 import { db, doc, getDoc, setDoc } from '../firebase';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-
 interface HoroscopeData {
   sign: string;
   prediction: string;
@@ -29,6 +27,7 @@ export default function Horoscope() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchHoroscope = async () => {
+    console.log("fetchHoroscope started");
     setLoading(true);
     setError(null);
     
@@ -38,10 +37,12 @@ export default function Horoscope() {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const today = `${year}-${month}-${day}`;
+    console.log("Today's date:", today);
     
     try {
       // 1. Try to get from Firestore first
       const docRef = doc(db, 'horoscopes', today);
+      console.log("Checking Firestore for doc:", today);
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
@@ -53,6 +54,14 @@ export default function Horoscope() {
 
       // 2. If not found, fetch from Gemini
       console.log("Fetching new horoscope for", today);
+      
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.error("GEMINI_API_KEY is missing");
+        throw new Error("API ключ Gemini не настроен. Пожалуйста, добавьте его в Secrets.");
+      }
+
+      const aiInstance = new GoogleGenAI({ apiKey });
       const model = "gemini-3-flash-preview";
       const prompt = `Provide a detailed daily horoscope for today (${today}) for Virgo (Дева) and Aries (Овен) in Russian. 
       Also provide a special prediction for them as a couple (Дева + Овен).
@@ -71,16 +80,23 @@ export default function Horoscope() {
         "question": "..."
       }`;
 
-      const response = await ai.models.generateContent({
+      console.log("Calling Gemini API...");
+      const response = await aiInstance.models.generateContent({
         model: model,
         contents: prompt,
         config: {
-          tools: [{ googleSearch: {} }],
           responseMimeType: "application/json"
         }
       });
 
-      const result = JSON.parse(response.text || '{}');
+      console.log("Gemini raw response received");
+      let result;
+      try {
+        result = JSON.parse(response.text || '{}');
+      } catch (parseErr) {
+        console.error("JSON parse error:", parseErr, "Raw text:", response.text);
+        throw new Error("Не удалось обработать ответ от звезд");
+      }
       
       if (result.virgo && result.aries && result.couple && result.question) {
         const dailyData: DailyData = {
@@ -91,21 +107,24 @@ export default function Horoscope() {
           question: result.question
         };
         
+        console.log("Saving new horoscope to Firestore...");
         // Save to Firestore for everyone to see the same thing today
         await setDoc(docRef, dailyData);
         setData(dailyData);
       } else {
+        console.error("Incomplete data from Gemini:", result);
         throw new Error("Не удалось получить полные данные гороскопа");
       }
     } catch (err) {
       console.error("Horoscope fetch error:", err);
-      setError("Не удалось загрузить прогноз. Попробуйте позже.");
+      setError(err instanceof Error ? err.message : "Не удалось загрузить прогноз. Попробуйте позже.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log("Horoscope component mounted");
     fetchHoroscope();
   }, []);
 
