@@ -28,6 +28,8 @@ import {
   where,
   orderBy,
   limit,
+  getDocs,
+  writeBatch,
   handleFirestoreError,
   OperationType
 } from '../firebase';
@@ -69,6 +71,10 @@ export default function Pet() {
   const [incomingQuestion, setIncomingQuestion] = useState<PetQuestion | null>(null);
   const [incomingAnswer, setIncomingAnswer] = useState('');
   const [answerStatus, setAnswerStatus] = useState<AnswerStatus>('idle');
+  const [lastCorrectAnswer, setLastCorrectAnswer] = useState<string | null>(null);
+
+  const [answeredQuestionsHistory, setAnsweredQuestionsHistory] = useState<PetQuestion[]>([]);
+  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Мини‑игра
   const [isGameOpen, setIsGameOpen] = useState(false);
@@ -144,7 +150,8 @@ export default function Pet() {
           lastActionBy: 'Система',
           isSleeping: false,
           currentRoom: 'playroom',
-          lastUpdate: serverTimestamp()
+          lastUpdate: serverTimestamp(),
+          lastCleanupDate: new Date().toISOString().split('T')[0]
         };
         updateDoc(petRef, initialState as any).catch(() => {
           import('../firebase').then(({ setDoc }) => setDoc(petRef, initialState));
@@ -159,6 +166,54 @@ export default function Pet() {
 
     return () => unsub();
   }, []);
+
+  // Обновление текущей даты каждую минуту для срабатывания очистки в полночь
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date().toISOString().split('T')[0];
+      if (now !== currentDate) {
+        setCurrentDate(now);
+      }
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [currentDate]);
+
+  // Логика ежедневной очистки истории
+  useEffect(() => {
+    if (!pet || !auth.currentUser) return;
+
+    if (pet.lastCleanupDate === currentDate) return;
+
+    const cleanupHistory = async () => {
+      try {
+        const q = query(
+          collection(db, 'petQuestions'),
+          where('status', '==', 'answered')
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          const petRef = doc(db, 'pet', 'frosh');
+          await updateDoc(petRef, { lastCleanupDate: currentDate });
+          return;
+        }
+
+        const batch = writeBatch(db);
+        snap.docs.forEach((d) => {
+          batch.delete(d.ref);
+        });
+        
+        const petRef = doc(db, 'pet', 'frosh');
+        batch.update(petRef, { lastCleanupDate: currentDate });
+        
+        await batch.commit();
+        console.log("Midnight history cleanup completed");
+      } catch (e) {
+        console.error("Cleanup error:", e);
+      }
+    };
+
+    cleanupHistory();
+  }, [pet?.lastCleanupDate, currentDate, pet === null]);
 
   // Подписка на входящие вопросы для текущего пользователя
   useEffect(() => {
@@ -187,6 +242,26 @@ export default function Pet() {
     }, (error) => {
       console.error("Questions snapshot error:", error);
       handleFirestoreError(error, OperationType.LIST, 'petQuestions');
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Подписка на историю ответов (все отвеченные вопросы)
+  useEffect(() => {
+    if (!auth.currentUser?.email) return;
+
+    const q = query(
+      collection(db, 'petQuestions'),
+      orderBy('answeredAt', 'desc'),
+      limit(10)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as PetQuestion));
+      setAnsweredQuestionsHistory(docs);
+    }, (error) => {
+      console.error("Questions history snapshot error:", error);
     });
 
     return () => unsub();
@@ -269,6 +344,7 @@ export default function Pet() {
     const normalizedCorrect = incomingQuestion.correctAnswer.trim().toLowerCase();
     const normalizedGiven = incomingAnswer.trim().toLowerCase();
     const isCorrect = normalizedCorrect.length > 0 && normalizedCorrect === normalizedGiven;
+    const correctAnswer = incomingQuestion.correctAnswer;
 
     try {
       const qRef = doc(db, 'petQuestions', incomingQuestion.id);
@@ -283,12 +359,14 @@ export default function Pet() {
 
       if (isCorrect) {
         setAnswerStatus('correct');
+        setLastCorrectAnswer(null);
         await performAction('Правильный ответ на вопрос (Получена еда)', {
           foodCount: (pet.foodCount || 0) + 1,
           happiness: Math.min(100, pet.happiness + 2)
         });
       } else {
         setAnswerStatus('wrong');
+        setLastCorrectAnswer(correctAnswer);
         await performAction('Ответил на вопрос', {});
       }
       setIncomingAnswer('');
@@ -708,9 +786,16 @@ export default function Pet() {
                       </p>
                     )}
                     {answerStatus === 'wrong' && (
-                      <p className="text-[11px] text-rose-500 font-medium">
-                        Не совсем так. Попробуйте ещё один вопрос.
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-[11px] text-rose-500 font-medium">
+                          Не совсем так.
+                        </p>
+                        {lastCorrectAnswer && (
+                          <p className="text-[10px] text-stone-500 italic">
+                            Правильный ответ был: <span className="font-bold text-stone-700">{lastCorrectAnswer}</span>
+                          </p>
+                        )}
+                      </div>
                     )}
                   </>
                 ) : (
@@ -719,6 +804,55 @@ export default function Pet() {
                   </p>
                 )}
               </div>
+
+              {/* История ответов */}
+              {answeredQuestionsHistory.length > 0 && (
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-stone-100 p-3 space-y-2">
+                  <p className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">
+                    История ответов
+                  </p>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                    {answeredQuestionsHistory.map((q) => (
+                      <div key={q.id} className="p-2 rounded-xl bg-stone-50 border border-stone-100 space-y-1">
+                        <div className="flex justify-between items-start">
+                          <p className="text-[9px] text-stone-400 font-bold uppercase">
+                            От: {q.createdByName}
+                          </p>
+                          <p className="text-[9px] text-stone-400 font-bold uppercase">
+                            Для: {q.targetEmail === 'glebkarpuhin8@gmail.com' ? 'Глеба' : 'Алёны'}
+                          </p>
+                        </div>
+                        <p className="text-[10px] font-medium text-stone-600">
+                          В: {q.question}
+                        </p>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[10px] text-stone-500">
+                              О: <span className={q.isCorrect ? "text-emerald-600 font-bold" : "text-rose-500 font-bold"}>
+                                {(q as any).answerGiven || 'Нет ответа'}
+                              </span>
+                            </p>
+                            {q.isCorrect ? (
+                              <div className="bg-emerald-100 p-0.5 rounded-full">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              </div>
+                            ) : (
+                              <div className="bg-rose-100 p-0.5 rounded-full">
+                                <X className="w-3 h-3 text-rose-600" />
+                              </div>
+                            )}
+                          </div>
+                          {!q.isCorrect && (
+                            <p className="text-[9px] text-stone-400 italic">
+                              Правильно: <span className="text-stone-600 font-medium">{q.correctAnswer}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

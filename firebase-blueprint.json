@@ -81,6 +81,26 @@
         "lastUpdate": { "type": "object" }
       },
       "required": ["hunger", "energy", "cleanliness", "happiness", "isSleeping", "currentRoom"]
+    },
+    "PetQuestion": {
+      "title": "PetQuestion",
+      "description": "A question sent between partners to earn food for the pet.",
+      "type": "object",
+      "properties": {
+        "question": { "type": "string" },
+        "correctAnswer": { "type": "string" },
+        "createdByEmail": { "type": "string" },
+        "createdByName": { "type": "string" },
+        "targetEmail": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "answered"] },
+        "isCorrect": { "type": "boolean" },
+        "answerGiven": { "type": "string" },
+        "answeredByEmail": { "type": "string" },
+        "answeredByName": { "type": "string" },
+        "answeredAt": { "type": "object" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["question", "correctAnswer", "createdByEmail", "targetEmail", "status"]
     }
   },
   "firestore": {
@@ -103,6 +123,10 @@
     "pet/frosh": {
       "schema": "PetState",
       "description": "Singleton state for the shared pet"
+    },
+    "petQuestions/{questionId}": {
+      "schema": "PetQuestion",
+      "description": "Questions sent between partners"
     }
   }
 }

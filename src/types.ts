@@ -54,4 +54,5 @@ export interface PetState {
   isSleeping: boolean;
   currentRoom: 'kitchen' | 'bedroom' | 'bathroom' | 'playroom';
   lastUpdate: any;
+  lastCleanupDate?: string; // YYYY-MM-DD
 }
