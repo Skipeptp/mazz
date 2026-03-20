@@ -83,6 +83,9 @@ export default function Pet() {
   const [gameInput, setGameInput] = useState('');
   const [gameStatus, setGameStatus] = useState<GameStatus>('idle');
 
+  const [isWashing, setIsWashing] = useState(false);
+  const [isFeeding, setIsFeeding] = useState(false);
+
   useEffect(() => {
     const petRef = doc(db, 'pet', 'frosh');
     const unsub = onSnapshot(petRef, (docSnap) => {
@@ -284,6 +287,58 @@ export default function Pet() {
     } catch (e) {
       console.error("Failed to update pet:", e);
     }
+  };
+
+  const handleWash = async () => {
+    if (!pet || pet.isSleeping || isWashing) return;
+    
+    setIsWashing(true);
+    setActionFeedback('Принимаем ванну... 🛁');
+    
+    // Динамическое обновление сообщения
+    const messages = [
+      'Намыливаем шёрстку... 🧼',
+      'Много пузырьков! 🫧',
+      'Смываем пенку... 🚿',
+      'Почти готово! ✨'
+    ];
+    
+    let msgIndex = 0;
+    const interval = setInterval(() => {
+      if (msgIndex < messages.length) {
+        setActionFeedback(messages[msgIndex]);
+        msgIndex++;
+      }
+    }, 1200);
+
+    setTimeout(async () => {
+      clearInterval(interval);
+      await performAction('Помылся и стал чистым ✨', { 
+        cleanliness: 100, 
+        happiness: Math.min(100, pet.happiness + 15) 
+      });
+      setIsWashing(false);
+      setActionFeedback('Теперь я чистый и пушистый! ✨');
+      setTimeout(() => setActionFeedback(null), 3000);
+    }, 5000);
+  };
+
+  const handleFeed = async () => {
+    if (!pet || pet.isSleeping || isFeeding || pet.foodCount <= 0) return;
+    
+    setIsFeeding(true);
+    setActionFeedback('Кушаем рыбку... 🐟');
+    
+    setTimeout(async () => {
+      await performAction('Покушал рыбку 🐟', { 
+        hunger: Math.min(100, pet.hunger + 25),
+        foodCount: pet.foodCount - 1,
+        happiness: Math.min(100, pet.happiness + 10)
+      });
+      setIsFeeding(false);
+      setActionFeedback('Вкусно! 😋');
+      setTimeout(() => setActionFeedback(null), 2000);
+    }, 3000);
   };
 
   const changeRoom = (direction: 'left' | 'right') => {
@@ -550,18 +605,23 @@ export default function Pet() {
                 {/* Интерьер под конкретную комнату */}
                 <RoomInterior room={pet.currentRoom} />
 
+                {/* Анимация пузырьков при мытье */}
+                <AnimatePresence>
+                  {isWashing && <Bubbles />}
+                </AnimatePresence>
+
                 {/* Тень под лисом */}
                 <div className="absolute inset-x-10 bottom-8 h-5 bg-black/10 blur-xl rounded-full" />
 
                 {/* Лисёнок */}
                 <motion.div
                   animate={{
-                    y: pet.isSleeping ? [0, 5, 0] : [0, -10, 0],
-                    scale: pet.isSleeping ? 0.96 : 1,
-                    rotate: pet.isSleeping ? 4 : 0
+                    y: pet.isSleeping ? [0, 5, 0] : isWashing ? [0, -4, 0] : [0, -10, 0],
+                    scale: pet.isSleeping ? 0.96 : isWashing ? 1.05 : 1,
+                    rotate: pet.isSleeping ? 4 : isWashing ? [0, -2, 2, 0] : 0
                   }}
                   transition={{
-                    duration: pet.isSleeping ? 3 : 2,
+                    duration: pet.isSleeping ? 3 : isWashing ? 0.3 : 2,
                     repeat: Infinity,
                     ease: "easeInOut"
                   }}
@@ -569,94 +629,237 @@ export default function Pet() {
                 >
                   <div className="w-40 h-40 sm:w-48 sm:h-48 relative">
                     <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-2xl">
-                      {/* Хвост */}
-                      <motion.path
-                        d="M140 150 C 180 130 180 90 150 80 C 155 105 145 125 130 135 Z"
-                        fill="#FB923C"
-                        animate={{ rotate: [0, 10, 0] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                        style={{ originX: "130px", originY: "135px" }}
+                      <defs>
+                        <linearGradient id="foxFur" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#FB923C" />
+                          <stop offset="100%" stopColor="#F97316" />
+                        </linearGradient>
+                        <radialGradient id="foxFace" cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor="#FDBA74" />
+                          <stop offset="100%" stopColor="#FB923C" />
+                        </radialGradient>
+                        <linearGradient id="foxBelly" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#FFFFFF" />
+                          <stop offset="100%" stopColor="#FFF1F2" />
+                        </linearGradient>
+                        <radialGradient id="foxEyeIris" cx="50%" cy="50%" r="50%">
+                          <stop offset="0%" stopColor="#6366F1" />
+                          <stop offset="100%" stopColor="#1E1B4B" />
+                        </radialGradient>
+                      </defs>
+
+                      {/* Хвост - очень пушистый */}
+                      <motion.g
+                        animate={{ 
+                          rotate: pet.isSleeping ? [0, 8, 0] : [0, 20, -10, 20, 0],
+                          x: pet.isSleeping ? [0, 2, 0] : [0, 8, -4, 8, 0]
+                        }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                        style={{ originX: "110px", originY: "145px" }}
+                      >
+                        <path
+                          d="M110 145 C 170 155 190 80 155 50 C 130 30 100 70 110 115"
+                          fill="url(#foxFur)"
+                          stroke="#EA580C"
+                          strokeWidth="1.5"
+                        />
+                        <path
+                          d="M155 50 C 175 65 180 90 160 100 C 145 90 135 75 155 50"
+                          fill="white"
+                        />
+                      </motion.g>
+
+                      {/* Тело - маленькое и круглое */}
+                      <motion.g
+                        animate={{ scale: pet.isSleeping ? [1, 1.03, 1] : [1, 1.02, 1] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      >
+                        <ellipse cx="80" cy="155" rx="48" ry="40" fill="url(#foxFur)" stroke="#EA580C" strokeWidth="1.5" />
+                        <path d="M55 145 Q80 175 105 145 Q80 160 55 145" fill="url(#foxBelly)" />
+                      </motion.g>
+
+                      {/* Ошейник с сердечком */}
+                      <path d="M50 142 Q80 155 110 142" stroke="#FDA4AF" strokeWidth="4" fill="none" strokeLinecap="round" />
+                      <motion.path 
+                        d="M80 152 L84 156 L80 160 L76 156 Z" 
+                        fill="#FB7185" 
+                        animate={{ scale: [1, 1.2, 1], rotate: [0, 15, -15, 0] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        style={{ originX: "80px", originY: "152px" }}
                       />
-                      <path
-                        d="M147 115 C 165 110 170 95 162 88"
-                        fill="#FFEDD5"
-                      />
 
-                      {/* Тело */}
-                      <ellipse cx="100" cy="135" rx="55" ry="35" fill="#F97316" />
-                      <ellipse cx="100" cy="137" rx="42" ry="24" fill="#FB923C" />
+                      {/* Уши - большие и мягкие */}
+                      <motion.g
+                        animate={{ rotate: pet.isSleeping ? 0 : [0, 5, 0, -5, 0] }}
+                        transition={{ duration: 4, repeat: Infinity, delay: 1 }}
+                        style={{ originX: "45px", originY: "70px" }}
+                      >
+                        <path d="M45 70 L5 15 L70 55 Z" fill="#F97316" stroke="#EA580C" strokeWidth="1.5" />
+                        <path d="M45 70 L15 30 L60 55 Z" fill="#FFE4E6" />
+                      </motion.g>
+                      <motion.g
+                        animate={{ rotate: pet.isSleeping ? 0 : [0, -5, 0, 5, 0] }}
+                        transition={{ duration: 4, repeat: Infinity, delay: 1.5 }}
+                        style={{ originX: "115px", originY: "70px" }}
+                      >
+                        <path d="M115 70 L155 15 L90 55 Z" fill="#F97316" stroke="#EA580C" strokeWidth="1.5" />
+                        <path d="M115 70 L145 30 L100 55 Z" fill="#FFE4E6" />
+                      </motion.g>
 
-                      {/* Лапы */}
-                      <ellipse cx="80" cy="155" rx="10" ry="7" fill="#451A03" />
-                      <ellipse cx="120" cy="155" rx="10" ry="7" fill="#451A03" />
-
-                      {/* Уши */}
-                      <path d="M60 70 L40 20 L90 55 Z" fill="#F97316" />
-                      <path d="M140 70 L160 20 L110 55 Z" fill="#F97316" />
-                      <path d="M60 70 L48 30 L80 55 Z" fill="#FED7AA" />
-                      <path d="M140 70 L152 30 L120 55 Z" fill="#FED7AA" />
-
-                      {/* Морда */}
-                      <circle cx="100" cy="95" r="55" fill="#FB923C" />
-                      <path
-                        d="M60 105 C 75 125 125 125 140 105 C 130 115 120 120 100 120 C 80 120 70 115 60 105 Z"
-                        fill="#FFEDD5"
-                      />
-
-                      {/* Щёчки */}
-                      <circle cx="70" cy="112" r="7" fill="#FDBA74" />
-                      <circle cx="130" cy="112" r="7" fill="#FDBA74" />
-
-                      {/* Белки */}
-                      <circle cx="75" cy="90" r="13" fill="white" />
-                      <circle cx="125" cy="90" r="13" fill="white" />
-
-                      {/* Глаза */}
-                      <motion.circle 
-                        cx="75" 
-                        cy="90" 
-                        r={pet.isSleeping ? 1 : 6} 
-                        fill="#111827"
-                        animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
-                        transition={pet.isSleeping ? {} : { duration: 4, repeat: Infinity, times: [0, 0.95, 1] }}
-                      />
-                      <motion.circle 
-                        cx="125" 
-                        cy="90" 
-                        r={pet.isSleeping ? 1 : 6} 
-                        fill="#111827"
-                        animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
-                        transition={pet.isSleeping ? {} : { duration: 4, repeat: Infinity, times: [0, 0.95, 1] }}
-                      />
-
-                      {/* Нос */}
-                      <path d="M92 110 L108 110 L100 122 Z" fill="#451A03" />
-
-                      {/* Рот */}
+                      {/* Голова - большая и круглая (Chibi style) */}
                       <path 
+                        d="M25 105 Q15 80 40 65 Q80 45 120 65 Q145 80 135 105 Q145 125 125 145 Q80 165 35 145 Q15 125 25 105" 
+                        fill="url(#foxFace)" 
+                        stroke="#EA580C" 
+                        strokeWidth="1.5" 
+                      />
+                      
+                      {/* Белая мордочка */}
+                      <path
+                        d="M45 125 C 55 150 105 150 115 125 C 105 140 90 145 80 145 C 70 145 55 140 45 125 Z"
+                        fill="white"
+                      />
+
+                      {/* Щёчки - яркий румянец */}
+                      <motion.circle 
+                        cx="40" cy="130" r="10" fill="#FDA4AF" 
+                        animate={{ opacity: pet.happiness > 50 ? [0.4, 0.8, 0.4] : 0.2 }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      <motion.circle 
+                        cx="120" cy="130" r="10" fill="#FDA4AF" 
+                        animate={{ opacity: pet.happiness > 50 ? [0.4, 0.8, 0.4] : 0.2 }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+
+                      {/* Глаза - ОГРОМНЫЕ И МИЛЫЕ */}
+                      <g>
+                        <circle cx="52" cy="105" r="18" fill="white" />
+                        <motion.circle 
+                          cx="52" 
+                          cy="105" 
+                          r={pet.isSleeping ? 1 : 11} 
+                          fill="url(#foxEyeIris)"
+                          animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
+                          transition={pet.isSleeping ? {} : { duration: 5, repeat: Infinity, times: [0, 0.96, 1] }}
+                        />
+                        {!pet.isSleeping && (
+                          <>
+                            <circle cx="48" cy="100" r="5" fill="white" opacity="0.9" />
+                            <circle cx="58" cy="110" r="2.5" fill="white" opacity="0.6" />
+                          </>
+                        )}
+                      </g>
+                      <g>
+                        <circle cx="108" cy="105" r="18" fill="white" />
+                        <motion.circle 
+                          cx="108" 
+                          cy="105" 
+                          r={pet.isSleeping ? 1 : 11} 
+                          fill="url(#foxEyeIris)"
+                          animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
+                          transition={pet.isSleeping ? {} : { duration: 5, repeat: Infinity, times: [0, 0.96, 1] }}
+                        />
+                        {!pet.isSleeping && (
+                          <>
+                            <circle cx="104" cy="100" r="5" fill="white" opacity="0.9" />
+                            <circle cx="114" cy="110" r="2.5" fill="white" opacity="0.6" />
+                          </>
+                        )}
+                      </g>
+
+                      {/* Носик - крошечный */}
+                      <circle cx="80" cy="128" r="4" fill="#271105" />
+
+                      {/* Лапки и рыбка при кормлении (поверх лица) */}
+                      <motion.g
+                        animate={isFeeding ? { y: -45, x: 10 } : {}}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <circle cx="60" cy="185" r="8" fill="#451A03" />
+                        <circle cx="60" cy="185" r="3" fill="#FDA4AF" opacity="0.4" />
+                      </motion.g>
+                      <motion.g
+                        animate={isFeeding ? { y: -45, x: -10 } : {}}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <circle cx="100" cy="185" r="8" fill="#451A03" />
+                        <circle cx="100" cy="185" r="3" fill="#FDA4AF" opacity="0.4" />
+                      </motion.g>
+
+                      <AnimatePresence>
+                        {isFeeding && (
+                          <motion.g
+                            initial={{ opacity: 0, scale: 0, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0 }}
+                            transition={{ duration: 0.3 }}
+                            style={{ originX: "80px", originY: "140px" }}
+                          >
+                            <motion.g
+                              animate={{ y: [0, -2, 0] }}
+                              transition={{ duration: 0.5, repeat: Infinity }}
+                            >
+                              {/* Тело рыбки */}
+                              <path d="M65 140 Q80 130 95 140 Q80 150 65 140" fill="#94A3B8" />
+                              {/* Хвост */}
+                              <path d="M95 140 L105 135 L105 145 Z" fill="#64748B" />
+                              {/* Глаз */}
+                              <circle cx="70" cy="138" r="1" fill="black" />
+                            </motion.g>
+                          </motion.g>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Пена при мытье */}
+                      {isWashing && (
+                        <motion.g
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                        >
+                          <circle cx="40" cy="80" r="12" fill="white" opacity="0.9" />
+                          <circle cx="120" cy="80" r="10" fill="white" opacity="0.9" />
+                          <circle cx="80" cy="65" r="15" fill="white" opacity="0.9" />
+                          <circle cx="30" cy="140" r="10" fill="white" opacity="0.9" />
+                          <circle cx="130" cy="140" r="12" fill="white" opacity="0.9" />
+                          <circle cx="80" cy="160" r="8" fill="white" opacity="0.9" />
+                        </motion.g>
+                      )}
+
+                      {/* Ротик - милая "w" */}
+                      <motion.path 
                         d={
                           pet.happiness < 35
-                            ? "M85 140 Q100 132 115 140"
-                            : "M85 140 Q100 152 115 140"
+                            ? "M72 145 Q80 138 88 145"
+                            : "M72 142 Q76 148 80 142 Q84 148 88 142"
                         }
                         stroke="#451A03"
-                        strokeWidth="3"
+                        strokeWidth="2.5"
                         fill="none"
                         strokeLinecap="round"
+                        animate={isFeeding ? { scaleY: [1, 1.3, 1], y: [0, 1, 0] } : {}}
+                        transition={{ duration: 0.25, repeat: Infinity }}
+                        style={{ originX: "80px", originY: "142px" }}
                       />
+
+                      {/* Сердечки при высоком счастье */}
+                      {!pet.isSleeping && pet.happiness > 80 && (
+                        <motion.g
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: [0, 1, 0], y: [-20, -60] }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                        >
+                          <Heart x="150" y="80" className="w-6 h-6 text-rose-400 fill-rose-400" />
+                        </motion.g>
+                      )}
 
                       {/* Zzz при сне */}
                       {pet.isSleeping && (
-                        <motion.text
-                          x="145"
-                          y="45"
-                          fontSize="22"
-                          fill="#F97316"
-                          animate={{ opacity: [0, 1, 0], y: [45, 20, 10] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          Zzz
-                        </motion.text>
+                        <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                          <motion.text x="160" y="60" fontSize="24" fontWeight="bold" fill="#F97316" animate={{ y: [60, 30], x: [160, 180], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity }}>Z</motion.text>
+                          <motion.text x="175" y="50" fontSize="18" fontWeight="bold" fill="#F97316" animate={{ y: [50, 25], x: [175, 195], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity, delay: 0.7 }}>z</motion.text>
+                        </motion.g>
                       )}
                     </svg>
                   </div>
@@ -675,18 +878,11 @@ export default function Pet() {
           <div className="grid grid-cols-2 gap-3 mb-3">
             {pet.currentRoom === 'kitchen' && (
               <ActionButton 
-                onClick={() => {
-                  if (pet.foodCount > 0) {
-                    performAction('Покормил лисёнка', { 
-                      hunger: Math.min(100, pet.hunger + 25),
-                      foodCount: pet.foodCount - 1
-                    });
-                  }
-                }}
+                onClick={handleFeed}
                 icon={<Utensils />}
-                label={`Покормить (${pet.foodCount})`}
+                label={isFeeding ? "Кушаем..." : `Покормить (${pet.foodCount})`}
                 color="bg-orange-500"
-                disabled={pet.isSleeping || pet.foodCount <= 0}
+                disabled={pet.isSleeping || pet.foodCount <= 0 || isFeeding}
               />
             )}
             {pet.currentRoom === 'bedroom' && (
@@ -699,11 +895,11 @@ export default function Pet() {
             )}
             {pet.currentRoom === 'bathroom' && (
               <ActionButton 
-                onClick={() => performAction('Помыл', { cleanliness: Math.min(100, pet.cleanliness + 50), happiness: Math.min(100, pet.happiness + 10) })}
+                onClick={handleWash}
                 icon={<Bath />}
-                label="Помыть"
+                label={isWashing ? "Моемся..." : "Помыть"}
                 color="bg-sky-500"
-                disabled={pet.isSleeping}
+                disabled={pet.isSleeping || isWashing}
               />
             )}
             {pet.currentRoom === 'playroom' && (
@@ -987,6 +1183,39 @@ function StatItem({ icon, value, color }: { icon: React.ReactNode, value: number
           className={`h-full ${color}`}
         />
       </div>
+    </div>
+  );
+}
+
+function Bubbles() {
+  return (
+    <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+      {Array.from({ length: 20 }).map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ 
+            y: 300, 
+            x: Math.random() * 300, 
+            opacity: 0, 
+            scale: Math.random() * 0.5 + 0.5 
+          }}
+          animate={{ 
+            y: -100, 
+            opacity: [0, 1, 1, 0],
+            x: (Math.random() * 300) + (Math.sin(i) * 30)
+          }}
+          transition={{ 
+            duration: Math.random() * 2 + 1.5, 
+            repeat: Infinity, 
+            delay: Math.random() * 2,
+            ease: "linear"
+          }}
+          className="absolute w-6 h-6 rounded-full bg-white/40 border border-white/60 backdrop-blur-[1px]"
+          style={{
+            boxShadow: 'inset -2px -2px 4px rgba(255,255,255,0.4), inset 2px 2px 4px rgba(0,0,0,0.05)'
+          }}
+        />
+      ))}
     </div>
   );
 }
