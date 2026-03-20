@@ -838,9 +838,9 @@ export default function Pet() {
                         strokeWidth="2.5"
                         fill="none"
                         strokeLinecap="round"
-                        animate={isFeeding ? { scaleY: [1, 1.3, 1], y: [0, 1, 0] } : {}}
-                        transition={{ duration: 0.25, repeat: Infinity }}
-                        style={{ originX: "80px", originY: "142px" }}
+                        animate={isFeeding ? { scaleY: [1, 1.15, 1], y: [0, 0.5, 0] } : { scaleY: 1, y: 0 }}
+                        transition={{ duration: 0.4, repeat: isFeeding ? Infinity : 0 }}
+                        style={{ originX: "80px", originY: pet.happiness < 35 ? "145px" : "142px" }}
                       />
 
                       {/* Сердечки при высоком счастье */}
