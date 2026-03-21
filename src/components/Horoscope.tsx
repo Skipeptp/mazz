@@ -55,17 +55,31 @@ export default function Horoscope() {
       // 2. If not found, fetch from Gemini
       console.log("Fetching new horoscope for", today);
       
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) {
-        console.error("GEMINI_API_KEY is missing");
-        throw new Error("API ключ Gemini не настроен. Пожалуйста, добавьте его в Secrets.");
+        console.error("Gemini API key is missing (checked GEMINI_API_KEY and API_KEY)");
+        throw new Error("API ключ Gemini не настроен. Пожалуйста, убедитесь, что он добавлен в Secrets.");
       }
 
       const aiInstance = new GoogleGenAI({ apiKey });
       const model = "gemini-3-flash-preview";
+      const randomSeed = Math.floor(Math.random() * 1000);
       const prompt = `Provide a detailed daily horoscope for today (${today}) for Virgo (Дева) and Aries (Овен) in Russian. 
       Also provide a special prediction for them as a couple (Дева + Овен).
-      Also provide one interesting, non-trivial, deep question for the couple to ask each other today (something about their relationship, dreams, or values).
+      Also provide one unique, deep, and non-trivial question for the couple to discuss. 
+      
+      CRITICAL: The question must be highly diverse and different every time. 
+      Random Seed: ${randomSeed}
+      
+      Rotate between these themes: 
+      - Childhood memories and their impact.
+      - Future dreams and "what if" scenarios.
+      - Deep philosophical values.
+      - Emotional intimacy and vulnerability.
+      - Funny or absurd hypothetical situations.
+      - Appreciation of small details in each other.
+      Avoid clichés like "what is your favorite color" or "where do you see us in 5 years". 
+      Make it something that sparks a real, 15-minute conversation.
       
       For each individual sign (Virgo and Aries), include:
       1. General prediction for the day.

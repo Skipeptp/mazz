@@ -14,6 +14,11 @@ type Tab = 'chat' | 'notes' | 'profile' | 'horoscope' | 'pet';
 const MOODS = ['😊', '🥰', '😴', '🤔', '😢', '😤', '🥳', '🤒', '😇', '😎'];
 const TIERS: TierItem['tier'][] = ['S', 'A', 'B', 'C', 'D'];
 
+const getTodayStr = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -207,6 +212,17 @@ export default function App() {
     }
   };
 
+  const togglePooped = async () => {
+    if (!user) return;
+    const today = getTodayStr();
+    const newDate = user.lastPoopedDate === today ? '' : today;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { lastPoopedDate: newDate });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
   const addTierItem = async () => {
     if (!user || !tierItemLabel.trim()) return;
     const newItem: TierItem = {
@@ -322,12 +338,19 @@ export default function App() {
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <h3 className="font-serif text-lg">{partner.displayName} сейчас...</h3>
-                          {partner.location && (
-                            <div className="flex items-center gap-1 text-rose-400 text-[10px] font-bold uppercase tracking-wider bg-rose-50 px-2 py-1 rounded-full">
-                              <MapPin className="w-3 h-3" />
-                              {partner.location}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {partner.lastPoopedDate === getTodayStr() && (
+                              <div className="flex items-center gap-1 text-emerald-500 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 px-2 py-1 rounded-full">
+                                💩 Да!
+                              </div>
+                            )}
+                            {partner.location && (
+                              <div className="flex items-center gap-1 text-rose-400 text-[10px] font-bold uppercase tracking-wider bg-rose-50 px-2 py-1 rounded-full">
+                                <MapPin className="w-3 h-3" />
+                                {partner.location}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <p className="text-stone-500 italic text-sm">
                           {partner.status || 'Просто наслаждается моментом'}
@@ -438,6 +461,22 @@ export default function App() {
                             <Edit3 className="w-4 h-4 text-stone-300 group-hover:text-rose-400 transition-colors" />
                           </div>
                         )}
+                      </div>
+
+                      {/* Pooped Status */}
+                      <div className="pt-6 border-t border-stone-50">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold block">Покакал(а) сегодня?</label>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={togglePooped}
+                            className={`px-6 py-2 rounded-2xl font-bold transition-all active:scale-95 ${user.lastPoopedDate === getTodayStr() ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-stone-100 text-stone-400 hover:bg-stone-200'}`}
+                          >
+                            {user.lastPoopedDate === getTodayStr() ? 'Да! ✨' : 'Нет'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

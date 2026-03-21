@@ -14,6 +14,7 @@ export interface UserProfile {
   status?: string;
   location?: string;
   tierList?: TierItem[];
+  lastPoopedDate?: string; // YYYY-MM-DD
 }
 
 export interface Message {

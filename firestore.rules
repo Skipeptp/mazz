@@ -11,6 +11,7 @@ service cloud.firestore {
     //   - email: string
     //   - photoURL: string
     //   - role: string (user/admin)
+    //   - lastPoopedDate: string (YYYY-MM-DD)
     //
     // Collection: messages
     // Fields:

@@ -12,6 +12,7 @@
         "mood": { "type": "string", "description": "Current mood emoji" },
         "status": { "type": "string", "description": "Current status or wish" },
         "location": { "type": "string", "description": "Current location" },
+        "lastPoopedDate": { "type": "string", "description": "YYYY-MM-DD format of last pooped action" },
         "tierList": {
           "type": "array",
           "items": {

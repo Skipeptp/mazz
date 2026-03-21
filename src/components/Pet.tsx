@@ -838,8 +838,8 @@ export default function Pet() {
                         strokeWidth="2.5"
                         fill="none"
                         strokeLinecap="round"
-                        animate={isFeeding ? { scaleY: [1, 1.15, 1], y: [0, 0.5, 0] } : { scaleY: 1, y: 0 }}
-                        transition={{ duration: 0.4, repeat: isFeeding ? Infinity : 0 }}
+                        animate={isFeeding ? { scaleY: [1, 1.08, 1], y: [0, 0.2, 0] } : { scaleY: 1, y: 0 }}
+                        transition={{ duration: 0.5, repeat: isFeeding ? Infinity : 0 }}
                         style={{ originX: "80px", originY: pet.happiness < 35 ? "145px" : "142px" }}
                       />
 
