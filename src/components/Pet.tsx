@@ -688,8 +688,8 @@ export default function Pet() {
                       {/* Хвост - очень пушистый */}
                       <motion.g
                         animate={{ 
-                          rotate: pet.isSleeping ? [0, 8, 0] : [0, 20, -10, 20, 0],
-                          x: pet.isSleeping ? [0, 2, 0] : [0, 8, -4, 8, 0]
+                          rotate: pet.isSleeping ? [0, 4, 0] : [0, 10, -5, 10, 0],
+                          x: pet.isSleeping ? [0, 1, 0] : [0, 4, -2, 4, 0]
                         }}
                         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                         style={{ originX: "110px", originY: "145px" }}
