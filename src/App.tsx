@@ -29,6 +29,9 @@ export default function App() {
   const [statusInput, setStatusInput] = useState('');
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [locationInput, setLocationInput] = useState('');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [avatarInput, setAvatarInput] = useState('');
   const [viewingPartnerTierList, setViewingPartnerTierList] = useState(false);
   const [tierItemLabel, setTierItemLabel] = useState('');
   const [tierItemLevel, setTierItemLevel] = useState<TierItem['tier']>('S');
@@ -48,6 +51,12 @@ export default function App() {
   const startEditingLocation = () => {
     setLocationInput(user?.location || '');
     setIsEditingLocation(true);
+  };
+
+  const startEditingProfile = () => {
+    setNameInput(user?.displayName || '');
+    setAvatarInput(user?.photoURL || '');
+    setIsEditingProfile(true);
   };
 
   useEffect(() => {
@@ -126,7 +135,7 @@ export default function App() {
               uid: docSnap.id, 
               ...data,
               displayName: data.displayName || u.displayName || 'Пользователь',
-              photoURL: systemAvatar
+              photoURL: data.photoURL || systemAvatar
             } as UserProfile);
           }
           setLoading(false);
@@ -151,7 +160,7 @@ export default function App() {
             setPartner({ 
               uid: docSnap.id, 
               ...pData,
-              photoURL: pSystemAvatar
+              photoURL: pData.photoURL || pSystemAvatar
             } as UserProfile);
           } else {
             console.log("Partner document not found at", partnerEmail);
@@ -209,6 +218,19 @@ export default function App() {
       handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     } finally {
       setIsSavingLocation(false);
+    }
+  };
+
+  const updateProfile = async () => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { 
+        displayName: nameInput,
+        photoURL: avatarInput 
+      });
+      setIsEditingProfile(false);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${user.uid}`);
     }
   };
 
@@ -311,7 +333,7 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             className="h-full"
           >
-            {activeTab === 'chat' && <Chat />}
+            {activeTab === 'chat' && <Chat user={user} partner={partner} />}
             {activeTab === 'notes' && <Notes />}
             {activeTab === 'horoscope' && <Horoscope />}
             {activeTab === 'pet' && <Pet />}
@@ -369,12 +391,59 @@ export default function App() {
                 <div className="space-y-3">
                   <label className="text-[10px] uppercase tracking-widest text-stone-400 font-bold px-4 block">Мой профиль</label>
                   <div className="bg-white p-8 rounded-[40px] shadow-xl border border-stone-100">
-                    <div className="text-center mb-8">
-                      <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-rose-50 shadow-lg overflow-hidden bg-rose-100 flex items-center justify-center">
+                    <div className="text-center mb-8 relative group">
+                      <div className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-rose-50 shadow-lg overflow-hidden bg-rose-100 flex items-center justify-center relative">
                         <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
+                        <button 
+                          onClick={startEditingProfile}
+                          className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Edit3 className="w-6 h-6 text-white" />
+                        </button>
                       </div>
-                      <h2 className="font-serif text-2xl mb-1">{user.displayName}</h2>
-                      <p className="text-stone-400 text-sm">{user.email}</p>
+                      
+                      {isEditingProfile ? (
+                        <div className="space-y-3 max-w-xs mx-auto">
+                          <input
+                            type="text"
+                            value={nameInput}
+                            onChange={(e) => setNameInput(e.target.value)}
+                            className="w-full px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl text-center outline-none focus:ring-2 focus:ring-rose-200"
+                            placeholder="Твое имя"
+                          />
+                          <input
+                            type="text"
+                            value={avatarInput}
+                            onChange={(e) => setAvatarInput(e.target.value)}
+                            className="w-full px-4 py-2 bg-stone-50 border border-stone-100 rounded-xl text-center text-xs outline-none focus:ring-2 focus:ring-rose-200"
+                            placeholder="Ссылка на аватарку"
+                          />
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => setIsEditingProfile(false)}
+                              className="flex-1 py-2 bg-stone-100 text-stone-500 rounded-xl font-bold text-sm"
+                            >
+                              Отмена
+                            </button>
+                            <button 
+                              onClick={updateProfile}
+                              className="flex-1 py-2 bg-stone-800 text-white rounded-xl font-bold text-sm"
+                            >
+                              Сохранить
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <h2 className="font-serif text-2xl mb-1 flex items-center justify-center gap-2">
+                            {user.displayName}
+                            <button onClick={startEditingProfile} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Edit3 className="w-4 h-4 text-stone-300 hover:text-rose-400" />
+                            </button>
+                          </h2>
+                          <p className="text-stone-400 text-sm">{user.email}</p>
+                        </>
+                      )}
                     </div>
 
                     <div className="space-y-6">

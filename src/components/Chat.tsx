@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, getDocs, where, deleteDoc, doc, writeBatch, handleFirestoreError, OperationType } from '../firebase';
-import { Message } from '../types';
+import { Message, UserProfile } from '../types';
 import { format, startOfDay } from 'date-fns';
-import { Send, Heart, Trash2 } from 'lucide-react';
+import { Send, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export default function Chat() {
+export default function Chat({ user, partner }: { user: UserProfile, partner: UserProfile | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -61,8 +61,8 @@ export default function Chat() {
     try {
       await addDoc(collection(db, 'messages'), {
         text: newMessage,
-        senderId: auth.currentUser.uid,
-        senderName: auth.currentUser.displayName || 'Unknown',
+        senderId: user.uid,
+        senderName: user.displayName,
         timestamp: serverTimestamp()
       });
       setNewMessage('');
@@ -86,14 +86,19 @@ export default function Chat() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <AnimatePresence initial={false}>
           {messages.map((msg) => {
-            const isMe = msg.senderId === auth.currentUser?.uid;
+            const isMe = msg.senderId === user.uid;
+            const senderAvatar = isMe ? user.photoURL : (partner?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${msg.senderId}`);
+            
             return (
               <motion.div
                 key={msg.id}
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
               >
+                <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-stone-100 shadow-sm mt-1">
+                  <img src={senderAvatar} alt={msg.senderName} className="w-full h-full object-cover" />
+                </div>
                 <div className={`max-w-[80%] p-3 rounded-2xl shadow-sm ${
                   isMe 
                     ? 'bg-rose-500 text-white rounded-tr-none' 

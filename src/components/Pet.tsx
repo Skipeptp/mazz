@@ -85,6 +85,8 @@ export default function Pet() {
 
   const [isWashing, setIsWashing] = useState(false);
   const [isFeeding, setIsFeeding] = useState(false);
+  const [isSendingLove, setIsSendingLove] = useState(false);
+  const [showBodyHearts, setShowBodyHearts] = useState(false);
 
   useEffect(() => {
     const petRef = doc(db, 'pet', 'frosh');
@@ -339,6 +341,32 @@ export default function Pet() {
       setActionFeedback('Вкусно! 😋');
       setTimeout(() => setActionFeedback(null), 2000);
     }, 3000);
+  };
+
+  const handleSendLove = async () => {
+    if (!pet || pet.isSleeping || isSendingLove) return;
+    
+    setIsSendingLove(true);
+    setActionFeedback('Отправляем любовь... ❤️');
+    
+    // Sequence:
+    // 1. Heart flies to fox (handled in SVG)
+    // 2. Fox "kisses" it (handled in SVG)
+    // 3. Body hearts appear
+    
+    setTimeout(() => {
+      setShowBodyHearts(true);
+      setActionFeedback('Лисёнок счастлив! 🥰');
+    }, 1500);
+
+    setTimeout(async () => {
+      await performAction('Отправил любовь партнёру ❤️', { 
+        happiness: Math.min(100, pet.happiness + 15) 
+      });
+      setIsSendingLove(false);
+      setShowBodyHearts(false);
+      setTimeout(() => setActionFeedback(null), 2000);
+    }, 4500);
   };
 
   const changeRoom = (direction: 'left' | 'right') => {
@@ -616,13 +644,15 @@ export default function Pet() {
                 {/* Лисёнок */}
                 <motion.div
                   animate={{
-                    y: pet.isSleeping ? [0, 5, 0] : isWashing ? [0, -4, 0] : [0, -10, 0],
-                    scale: pet.isSleeping ? 0.96 : isWashing ? 1.05 : 1,
-                    rotate: pet.isSleeping ? 4 : isWashing ? [0, -2, 2, 0] : 0
+                    y: showBodyHearts 
+                      ? [0, -40, 0, -40, 0] 
+                      : pet.isSleeping ? [0, 5, 0] : isWashing ? [0, -4, 0] : [0, -10, 0],
+                    scale: showBodyHearts ? [1, 1.1, 1, 1.1, 1] : pet.isSleeping ? 0.96 : isWashing ? 1.05 : 1,
+                    rotate: showBodyHearts ? [0, 5, -5, 5, 0] : pet.isSleeping ? 4 : isWashing ? [0, -2, 2, 0] : 0
                   }}
                   transition={{
-                    duration: pet.isSleeping ? 3 : isWashing ? 0.3 : 2,
-                    repeat: Infinity,
+                    duration: showBodyHearts ? 1.5 : pet.isSleeping ? 3 : isWashing ? 0.3 : 2,
+                    repeat: showBodyHearts ? 0 : Infinity,
                     ease: "easeInOut"
                   }}
                   className="relative z-10"
@@ -676,6 +706,15 @@ export default function Pet() {
                       >
                         <ellipse cx="80" cy="155" rx="48" ry="40" fill="url(#foxFur)" stroke="#EA580C" strokeWidth="1.5" />
                         <path d="M55 145 Q80 175 105 145 Q80 160 55 145" fill="url(#foxBelly)" />
+                        
+                        {/* Сердечки на теле */}
+                        {showBodyHearts && (
+                          <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                            <Heart x="55" y="145" className="w-4 h-4 text-white/60 fill-white/60" />
+                            <Heart x="90" y="155" className="w-3 h-3 text-white/40 fill-white/40" />
+                            <Heart x="70" y="165" className="w-2 h-2 text-white/50 fill-white/50" />
+                          </motion.g>
+                        )}
                       </motion.g>
 
                       {/* Ошейник с сердечком */}
@@ -735,41 +774,79 @@ export default function Pet() {
                       {/* Глаза - ОГРОМНЫЕ И МИЛЫЕ */}
                       <g>
                         <circle cx="52" cy="105" r="18" fill="white" />
-                        <motion.circle 
-                          cx="52" 
-                          cy="105" 
-                          r={pet.isSleeping ? 1 : 11} 
-                          fill="url(#foxEyeIris)"
-                          animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
-                          transition={pet.isSleeping ? {} : { duration: 5, repeat: Infinity, times: [0, 0.96, 1] }}
-                        />
-                        {!pet.isSleeping && (
+                        {showBodyHearts ? (
+                          <motion.path 
+                            d="M 52 116 C 44 116, 40 108, 40 102 C 40 94, 48 94, 52 100 C 56 94, 64 94, 64 102 C 64 108, 60 116, 52 116" 
+                            fill="#FB7185"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                            style={{ originX: "50%", originY: "50%" }}
+                          />
+                        ) : (
                           <>
-                            <circle cx="48" cy="100" r="5" fill="white" opacity="0.9" />
-                            <circle cx="58" cy="110" r="2.5" fill="white" opacity="0.6" />
+                            <motion.circle 
+                              cx="52" 
+                              cy="105" 
+                              r={pet.isSleeping ? 1 : 11} 
+                              fill="url(#foxEyeIris)"
+                              animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
+                              transition={pet.isSleeping ? {} : { duration: 5, repeat: Infinity, times: [0, 0.96, 1] }}
+                            />
+                            {!pet.isSleeping && (
+                              <>
+                                <circle cx="48" cy="100" r="5" fill="white" opacity="0.9" />
+                                <circle cx="58" cy="110" r="2.5" fill="white" opacity="0.6" />
+                              </>
+                            )}
                           </>
                         )}
                       </g>
                       <g>
                         <circle cx="108" cy="105" r="18" fill="white" />
-                        <motion.circle 
-                          cx="108" 
-                          cy="105" 
-                          r={pet.isSleeping ? 1 : 11} 
-                          fill="url(#foxEyeIris)"
-                          animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
-                          transition={pet.isSleeping ? {} : { duration: 5, repeat: Infinity, times: [0, 0.96, 1] }}
-                        />
-                        {!pet.isSleeping && (
+                        {showBodyHearts ? (
+                          <motion.path 
+                            d="M 108 116 C 100 116, 96 108, 96 102 C 96 94, 104 94, 108 100 C 112 94, 120 94, 120 102 C 120 108, 116 116, 108 116" 
+                            fill="#FB7185"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                            style={{ originX: "50%", originY: "50%" }}
+                          />
+                        ) : (
                           <>
-                            <circle cx="104" cy="100" r="5" fill="white" opacity="0.9" />
-                            <circle cx="114" cy="110" r="2.5" fill="white" opacity="0.6" />
+                            <motion.circle 
+                              cx="108" 
+                              cy="105" 
+                              r={pet.isSleeping ? 1 : 11} 
+                              fill="url(#foxEyeIris)"
+                              animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
+                              transition={pet.isSleeping ? {} : { duration: 5, repeat: Infinity, times: [0, 0.96, 1] }}
+                            />
+                            {!pet.isSleeping && (
+                              <>
+                                <circle cx="104" cy="100" r="5" fill="white" opacity="0.9" />
+                                <circle cx="114" cy="110" r="2.5" fill="white" opacity="0.6" />
+                              </>
+                            )}
                           </>
                         )}
                       </g>
 
                       {/* Носик - крошечный */}
                       <circle cx="80" cy="128" r="4" fill="#271105" />
+
+                      {/* Ротик / Поцелуй */}
+                      {isSendingLove && !showBodyHearts ? (
+                        <motion.path 
+                          d="M75 135 Q80 140 85 135" 
+                          stroke="#271105" 
+                          strokeWidth="2" 
+                          fill="none" 
+                          strokeLinecap="round"
+                          animate={{ scale: [1, 1.2, 1] }}
+                        />
+                      ) : (
+                        <path d="M75 135 Q80 138 85 135" stroke="#271105" strokeWidth="1" fill="none" strokeLinecap="round" />
+                      )}
 
                       {/* Лапки и рыбка при кормлении (поверх лица) */}
                       <motion.g
@@ -807,6 +884,20 @@ export default function Pet() {
                               {/* Глаз */}
                               <circle cx="70" cy="138" r="1" fill="black" />
                             </motion.g>
+                          </motion.g>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Летящее сердечко */}
+                      <AnimatePresence>
+                        {isSendingLove && !showBodyHearts && (
+                          <motion.g
+                            initial={{ x: 80, y: 250, scale: 0, opacity: 0 }}
+                            animate={{ x: 80, y: 135, scale: 1.5, opacity: 1 }}
+                            exit={{ scale: 2, opacity: 0 }}
+                            transition={{ duration: 1.2, ease: "easeOut" }}
+                          >
+                            <Heart className="w-8 h-8 text-rose-500 fill-rose-500 -translate-x-4 -translate-y-4" />
                           </motion.g>
                         )}
                       </AnimatePresence>
@@ -912,11 +1003,11 @@ export default function Pet() {
               />
             )}
             <ActionButton 
-              onClick={() => performAction('Отправил любовь партнёру', { happiness: Math.min(100, pet.happiness + 5) })}
-              icon={<Heart />}
-              label="Отправить любовь"
+              onClick={handleSendLove}
+              icon={<Heart className={isSendingLove ? "fill-white animate-pulse" : ""} />}
+              label={isSendingLove ? "Любовь летит!" : "Отправить любовь"}
               color="bg-pink-500"
-              disabled={pet.isSleeping}
+              disabled={pet.isSleeping || isSendingLove}
             />
           </div>
 
