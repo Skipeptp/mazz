@@ -536,9 +536,9 @@ export default function Pet() {
     <>
       <div className="max-w-md mx-auto bg-stone-50 rounded-[40px] shadow-2xl overflow-hidden border border-stone-100 relative">
         {/* UI Overlay */}
-        <div className="relative z-10 p-6 flex flex-col min-h-[850px]">
+        <div className="relative z-10 p-4 flex flex-col min-h-[650px]">
           {/* Stats Bar */}
-          <div className="grid grid-cols-4 gap-2 mb-8">
+          <div className="grid grid-cols-4 gap-2 mb-4">
             <StatItem 
               icon={<Utensils className="w-4 h-4" />} 
               value={pet.hunger} 
@@ -570,7 +570,7 @@ export default function Pet() {
           </div>
 
           {/* Room Header (Arrows removed as requested) */}
-          <div className="flex items-center justify-center mb-4">
+          <div className="flex items-center justify-center mb-2">
             <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-1 rounded-full shadow-sm border border-white/50">
               {currentRoomData.icon}
               <span className="font-bold text-xs uppercase tracking-widest text-stone-600">{currentRoomData.name}</span>
@@ -593,7 +593,7 @@ export default function Pet() {
               )}
             </AnimatePresence>
 
-            <div className="w-full flex flex-col items-center gap-4">
+            <div className="w-full flex flex-col items-center gap-2">
               {/* Name Editing */}
               <div className="flex items-center gap-2">
                 {isEditingName ? (
