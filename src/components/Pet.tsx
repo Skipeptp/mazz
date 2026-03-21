@@ -85,8 +85,29 @@ export default function Pet() {
 
   const [isWashing, setIsWashing] = useState(false);
   const [isFeeding, setIsFeeding] = useState(false);
+  const [foodType, setFoodType] = useState<'fish' | 'berry' | 'chicken'>('fish');
   const [isSendingLove, setIsSendingLove] = useState(false);
   const [showBodyHearts, setShowBodyHearts] = useState(false);
+  const [idleAnimation, setIdleAnimation] = useState<'none' | 'look' | 'ears' | 'tail'>('none');
+
+  // Цикл "бездействующих" анимаций
+  useEffect(() => {
+    if (pet?.isSleeping || isFeeding || isWashing || isSendingLove) {
+      setIdleAnimation('none');
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const types: ('none' | 'look' | 'ears' | 'tail')[] = ['none', 'look', 'ears', 'tail', 'none'];
+      const next = types[Math.floor(Math.random() * types.length)];
+      setIdleAnimation(next);
+      
+      // Сбрасываем анимацию через 2 секунды, чтобы они не были постоянными
+      setTimeout(() => setIdleAnimation('none'), 2000);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [pet?.isSleeping, isFeeding, isWashing, isSendingLove]);
 
   useEffect(() => {
     const petRef = doc(db, 'pet', 'frosh');
@@ -329,10 +350,28 @@ export default function Pet() {
     if (!pet || pet.isSleeping || isFeeding || pet.foodCount <= 0) return;
     
     setIsFeeding(true);
-    setActionFeedback('Кушаем рыбку... 🐟');
+    
+    // Выбираем следующий тип еды
+    const types: ('fish' | 'berry' | 'chicken')[] = ['fish', 'berry', 'chicken'];
+    const currentIndex = types.indexOf(foodType);
+    const nextType = types[(currentIndex + 1) % types.length];
+    setFoodType(nextType);
+
+    const foodNames = {
+      fish: 'рыбку... 🐟',
+      berry: 'ягодку... 🍓',
+      chicken: 'курочку... 🍗'
+    };
+    
+    setActionFeedback(`Кушаем ${foodNames[nextType]}`);
     
     setTimeout(async () => {
-      await performAction('Покушал рыбку 🐟', { 
+      const actionNames = {
+        fish: 'Покушал рыбку 🐟',
+        berry: 'Покушал ягодку 🍓',
+        chicken: 'Покушал курочку 🍗'
+      };
+      await performAction(actionNames[nextType], { 
         hunger: Math.min(100, pet.hunger + 25),
         foodCount: pet.foodCount - 1,
         happiness: Math.min(100, pet.happiness + 10)
@@ -634,6 +673,17 @@ export default function Pet() {
                 {/* Интерьер под конкретную комнату */}
                 <div className="absolute inset-0 z-0">
                   <RoomInterior room={pet.currentRoom} />
+                  {/* Ночной оверлей при сне */}
+                  <AnimatePresence>
+                    {pet.isSleeping && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-indigo-950/30 backdrop-blur-[1px] pointer-events-none z-10"
+                      />
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Анимация пузырьков при мытье */}
@@ -688,10 +738,10 @@ export default function Pet() {
                       {/* Хвост - очень пушистый */}
                       <motion.g
                         animate={{ 
-                          rotate: pet.isSleeping ? [0, 4, 0] : [0, 10, -5, 10, 0],
-                          x: pet.isSleeping ? [0, 1, 0] : [0, 4, -2, 4, 0]
+                          rotate: pet.isSleeping ? [0, 4, 0] : idleAnimation === 'tail' ? [0, 25, -15, 25, 0] : [0, 10, -5, 10, 0],
+                          x: pet.isSleeping ? [0, 1, 0] : idleAnimation === 'tail' ? [0, 8, -4, 8, 0] : [0, 4, -2, 4, 0]
                         }}
-                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                        transition={{ duration: idleAnimation === 'tail' ? 0.5 : 4, repeat: Infinity, ease: "easeInOut" }}
                         style={{ originX: "110px", originY: "145px" }}
                       >
                         <path
@@ -708,8 +758,8 @@ export default function Pet() {
 
                       {/* Тело - маленькое и круглое */}
                       <motion.g
-                        animate={{ scale: pet.isSleeping ? [1, 1.03, 1] : [1, 1.02, 1] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                        animate={{ scale: pet.isSleeping ? [1, 1.06, 1] : [1, 1.02, 1] }}
+                        transition={{ duration: pet.isSleeping ? 4 : 3, repeat: Infinity, ease: "easeInOut" }}
                       >
                         <ellipse cx="80" cy="155" rx="48" ry="40" fill="url(#foxFur)" stroke="#EA580C" strokeWidth="1.5" />
                         <path d="M55 145 Q80 175 105 145 Q80 160 55 145" fill="url(#foxBelly)" />
@@ -736,16 +786,16 @@ export default function Pet() {
 
                       {/* Уши - большие и мягкие */}
                       <motion.g
-                        animate={{ rotate: pet.isSleeping ? 0 : [0, 5, 0, -5, 0] }}
-                        transition={{ duration: 4, repeat: Infinity, delay: 1 }}
+                        animate={{ rotate: pet.isSleeping ? 0 : idleAnimation === 'ears' ? [0, 15, 0, 15, 0] : [0, 5, 0, -5, 0] }}
+                        transition={{ duration: idleAnimation === 'ears' ? 0.4 : 4, repeat: Infinity, delay: 1 }}
                         style={{ originX: "45px", originY: "70px" }}
                       >
                         <path d="M45 70 L5 15 L70 55 Z" fill="#F97316" stroke="#EA580C" strokeWidth="1.5" />
                         <path d="M45 70 L15 30 L60 55 Z" fill="#FFE4E6" />
                       </motion.g>
                       <motion.g
-                        animate={{ rotate: pet.isSleeping ? 0 : [0, -5, 0, 5, 0] }}
-                        transition={{ duration: 4, repeat: Infinity, delay: 1.5 }}
+                        animate={{ rotate: pet.isSleeping ? 0 : idleAnimation === 'ears' ? [0, -15, 0, -15, 0] : [0, -5, 0, 5, 0] }}
+                        transition={{ duration: idleAnimation === 'ears' ? 0.4 : 4, repeat: Infinity, delay: 1.5 }}
                         style={{ originX: "115px", originY: "70px" }}
                       >
                         <path d="M115 70 L155 15 L90 55 Z" fill="#F97316" stroke="#EA580C" strokeWidth="1.5" />
@@ -785,18 +835,40 @@ export default function Pet() {
                           />
                         ) : (
                           <>
-                            <motion.circle 
-                              cx="52" 
-                              cy="105" 
-                              r={pet.isSleeping ? 1 : 11} 
-                              fill="url(#foxEyeIris)"
-                              animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
-                              transition={pet.isSleeping ? {} : { duration: 5, repeat: Infinity, times: [0, 0.96, 1] }}
-                            />
-                            {!pet.isSleeping && (
+                            {pet.isSleeping ? (
+                              <path 
+                                d="M 42 105 Q 52 115 62 105" 
+                                fill="none" 
+                                stroke="#1E1B4B" 
+                                strokeWidth="2.5" 
+                                strokeLinecap="round" 
+                              />
+                            ) : (
                               <>
-                                <circle cx="48" cy="100" r="5" fill="white" opacity="0.9" />
-                                <circle cx="58" cy="110" r="2.5" fill="white" opacity="0.6" />
+                                <motion.circle 
+                                  cx="52" 
+                                  cy="105" 
+                                  r={11} 
+                                  fill="url(#foxEyeIris)"
+                                  animate={{ 
+                                    scaleY: [1, 0.1, 1],
+                                    x: idleAnimation === 'look' ? [-4, 4, 0] : 0 
+                                  }}
+                                  transition={{ 
+                                    scaleY: { duration: 5, repeat: Infinity, times: [0, 0.96, 1] },
+                                    x: { duration: 2, repeat: 0 }
+                                  }}
+                                />
+                                <motion.circle 
+                                  cx="48" cy="100" r="5" fill="white" opacity="0.9" 
+                                  animate={{ x: idleAnimation === 'look' ? [-4, 4, 0] : 0 }}
+                                  transition={{ duration: 2, repeat: 0 }}
+                                />
+                                <motion.circle 
+                                  cx="58" cy="110" r="2.5" fill="white" opacity="0.6" 
+                                  animate={{ x: idleAnimation === 'look' ? [-4, 4, 0] : 0 }}
+                                  transition={{ duration: 2, repeat: 0 }}
+                                />
                               </>
                             )}
                           </>
@@ -814,18 +886,40 @@ export default function Pet() {
                           />
                         ) : (
                           <>
-                            <motion.circle 
-                              cx="108" 
-                              cy="105" 
-                              r={pet.isSleeping ? 1 : 11} 
-                              fill="url(#foxEyeIris)"
-                              animate={pet.isSleeping ? {} : { scaleY: [1, 0.1, 1] }}
-                              transition={pet.isSleeping ? {} : { duration: 5, repeat: Infinity, times: [0, 0.96, 1] }}
-                            />
-                            {!pet.isSleeping && (
+                            {pet.isSleeping ? (
+                              <path 
+                                d="M 98 105 Q 108 115 118 105" 
+                                fill="none" 
+                                stroke="#1E1B4B" 
+                                strokeWidth="2.5" 
+                                strokeLinecap="round" 
+                              />
+                            ) : (
                               <>
-                                <circle cx="104" cy="100" r="5" fill="white" opacity="0.9" />
-                                <circle cx="114" cy="110" r="2.5" fill="white" opacity="0.6" />
+                                <motion.circle 
+                                  cx="108" 
+                                  cy="105" 
+                                  r={11} 
+                                  fill="url(#foxEyeIris)"
+                                  animate={{ 
+                                    scaleY: [1, 0.1, 1],
+                                    x: idleAnimation === 'look' ? [-4, 4, 0] : 0 
+                                  }}
+                                  transition={{ 
+                                    scaleY: { duration: 5, repeat: Infinity, times: [0, 0.96, 1] },
+                                    x: { duration: 2, repeat: 0 }
+                                  }}
+                                />
+                                <motion.circle 
+                                  cx="104" cy="100" r="5" fill="white" opacity="0.9" 
+                                  animate={{ x: idleAnimation === 'look' ? [-4, 4, 0] : 0 }}
+                                  transition={{ duration: 2, repeat: 0 }}
+                                />
+                                <motion.circle 
+                                  cx="114" cy="110" r="2.5" fill="white" opacity="0.6" 
+                                  animate={{ x: idleAnimation === 'look' ? [-4, 4, 0] : 0 }}
+                                  transition={{ duration: 2, repeat: 0 }}
+                                />
                               </>
                             )}
                           </>
@@ -864,12 +958,36 @@ export default function Pet() {
                               animate={{ y: [0, -2, 0] }}
                               transition={{ duration: 0.5, repeat: Infinity }}
                             >
-                              {/* Тело рыбки */}
-                              <path d="M65 140 Q80 130 95 140 Q80 150 65 140" fill="#94A3B8" />
-                              {/* Хвост */}
-                              <path d="M95 140 L105 135 L105 145 Z" fill="#64748B" />
-                              {/* Глаз */}
-                              <circle cx="70" cy="138" r="1" fill="black" />
+                              {foodType === 'fish' && (
+                                <>
+                                  {/* Тело рыбки */}
+                                  <path d="M65 140 Q80 130 95 140 Q80 150 65 140" fill="#94A3B8" />
+                                  {/* Хвост */}
+                                  <path d="M95 140 L105 135 L105 145 Z" fill="#64748B" />
+                                  {/* Глаз */}
+                                  <circle cx="70" cy="138" r="1" fill="black" />
+                                </>
+                              )}
+                              {foodType === 'berry' && (
+                                <>
+                                  {/* Ягодка */}
+                                  <circle cx="80" cy="140" r="8" fill="#EF4444" />
+                                  {/* Блик */}
+                                  <circle cx="77" cy="137" r="2" fill="white" opacity="0.6" />
+                                  {/* Листик */}
+                                  <path d="M80 132 Q82 125 85 130" stroke="#22C55E" strokeWidth="2" fill="none" />
+                                </>
+                              )}
+                              {foodType === 'chicken' && (
+                                <>
+                                  {/* Косточка */}
+                                  <rect x="75" y="135" width="15" height="10" rx="2" fill="#FDE68A" />
+                                  <circle cx="75" cy="137" r="4" fill="#FDE68A" />
+                                  <circle cx="75" cy="143" r="4" fill="#FDE68A" />
+                                  {/* Мясо */}
+                                  <path d="M85 130 Q105 130 105 140 Q105 150 85 150 Z" fill="#B45309" />
+                                </>
+                              )}
                             </motion.g>
                           </motion.g>
                         )}
@@ -934,12 +1052,58 @@ export default function Pet() {
                         </motion.g>
                       )}
 
-                      {/* Zzz при сне */}
+                      {/* Анимация сна (Zzz) - Перенесено в конец для видимости поверх головы */}
                       {pet.isSleeping && (
-                        <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                          <motion.text x="160" y="60" fontSize="24" fontWeight="bold" fill="#F97316" animate={{ y: [60, 30], x: [160, 180], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity }}>Z</motion.text>
-                          <motion.text x="175" y="50" fontSize="18" fontWeight="bold" fill="#F97316" animate={{ y: [50, 25], x: [175, 195], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity, delay: 0.7 }}>z</motion.text>
-                        </motion.g>
+                        <g>
+                          <motion.text
+                            x="60" y="60"
+                            fill="#6366F1"
+                            fontSize="16"
+                            fontWeight="bold"
+                            fontFamily="monospace"
+                            animate={{ 
+                              y: [60, 20],
+                              x: [60, 75],
+                              opacity: [0, 1, 0],
+                              scale: [0.5, 1.2, 0.8]
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
+                          >
+                            z
+                          </motion.text>
+                          <motion.text
+                            x="75" y="50"
+                            fill="#4F46E5"
+                            fontSize="22"
+                            fontWeight="bold"
+                            fontFamily="monospace"
+                            animate={{ 
+                              y: [50, 0],
+                              x: [75, 95],
+                              opacity: [0, 1, 0],
+                              scale: [0.5, 1.5, 1]
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
+                          >
+                            z
+                          </motion.text>
+                          <motion.text
+                            x="90" y="40"
+                            fill="#4338CA"
+                            fontSize="28"
+                            fontWeight="bold"
+                            fontFamily="monospace"
+                            animate={{ 
+                              y: [40, -20],
+                              x: [90, 120],
+                              opacity: [0, 1, 0],
+                              scale: [0.5, 1.8, 1.2]
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: 1 }}
+                          >
+                            Z
+                          </motion.text>
+                        </g>
                       )}
                     </svg>
                   </div>
