@@ -36,10 +36,10 @@ import {
 import { PetState } from '../types';
 
 const ROOMS = [
-  { id: 'kitchen', name: 'Кухня', icon: <Utensils />, bg: 'https://images.unsplash.com/photo-1585007600263-ad1f347368d1?auto=format&fit=crop&w=800&q=80' },
-  { id: 'bedroom', name: 'Спальня', icon: <Bed />, bg: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80' },
-  { id: 'bathroom', name: 'Ванная', icon: <Bath />, bg: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80' },
-  { id: 'playroom', name: 'Игровая', icon: <Gamepad2 />, bg: 'https://images.unsplash.com/photo-1550005816-09246d37735c?auto=format&fit=crop&w=800&q=80' },
+  { id: 'kitchen', name: 'Кухня', icon: <Utensils /> },
+  { id: 'bedroom', name: 'Спальня', icon: <Bed /> },
+  { id: 'bathroom', name: 'Ванная', icon: <Bath /> },
+  { id: 'playroom', name: 'Игровая', icon: <Gamepad2 /> },
 ];
 
 interface PetQuestion {
@@ -369,14 +369,12 @@ export default function Pet() {
     }, 4500);
   };
 
-  const changeRoom = (direction: 'left' | 'right') => {
-    if (!pet) return;
-    const currentIndex = ROOMS.findIndex(r => r.id === pet.currentRoom);
-    let nextIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1;
-    if (nextIndex < 0) nextIndex = ROOMS.length - 1;
-    if (nextIndex >= ROOMS.length) nextIndex = 0;
-    
-    performAction(`Перешел в ${ROOMS[nextIndex].name}`, { currentRoom: ROOMS[nextIndex].id as any });
+  const goToRoom = (roomId: string) => {
+    if (!pet || pet.currentRoom === roomId) return;
+    const room = ROOMS.find(r => r.id === roomId);
+    if (room) {
+      performAction(`Перешел в ${room.name}`, { currentRoom: roomId as any });
+    }
   };
 
   const updateName = async () => {
@@ -536,44 +534,47 @@ export default function Pet() {
 
   return (
     <>
-      <div className="max-w-md mx-auto bg-white rounded-[40px] shadow-2xl overflow-hidden border border-stone-100 relative">
-        {/* Background Image */}
-        <div className="absolute inset-0 z-0">
-          <AnimatePresence mode="wait">
-            <motion.img
-              key={pet.currentRoom}
-              src={currentRoomData.bg}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.4 }}
-              exit={{ opacity: 0 }}
-              className="w-full h-full object-cover"
-            />
-          </AnimatePresence>
-          <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-white/10 to-white/90" />
-        </div>
-
+      <div className="max-w-md mx-auto bg-stone-50 rounded-[40px] shadow-2xl overflow-hidden border border-stone-100 relative">
         {/* UI Overlay */}
         <div className="relative z-10 p-6 flex flex-col min-h-[850px]">
           {/* Stats Bar */}
           <div className="grid grid-cols-4 gap-2 mb-8">
-            <StatItem icon={<Utensils className="w-4 h-4" />} value={pet.hunger} color="bg-orange-400" />
-            <StatItem icon={<Zap className="w-4 h-4" />} value={pet.energy} color="bg-yellow-400" />
-            <StatItem icon={<Droplets className="w-4 h-4" />} value={pet.cleanliness} color="bg-sky-400" />
-            <StatItem icon={<Heart className="w-4 h-4" />} value={pet.happiness} color="bg-rose-400" />
+            <StatItem 
+              icon={<Utensils className="w-4 h-4" />} 
+              value={pet.hunger} 
+              color="bg-orange-400" 
+              onClick={() => goToRoom('kitchen')}
+              label="Голод"
+            />
+            <StatItem 
+              icon={<Zap className="w-4 h-4" />} 
+              value={pet.energy} 
+              color="bg-yellow-400" 
+              onClick={() => goToRoom('bedroom')}
+              label="Энергия"
+            />
+            <StatItem 
+              icon={<Droplets className="w-4 h-4" />} 
+              value={pet.cleanliness} 
+              color="bg-sky-400" 
+              onClick={() => goToRoom('bathroom')}
+              label="Чистота"
+            />
+            <StatItem 
+              icon={<Heart className="w-4 h-4" />} 
+              value={pet.happiness} 
+              color="bg-rose-400" 
+              onClick={() => goToRoom('playroom')}
+              label="Счастье"
+            />
           </div>
 
-          {/* Room Navigation */}
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => changeRoom('left')} className="p-2 bg-white/50 backdrop-blur-sm rounded-full hover:bg-white/80 transition-all">
-              <ChevronLeft className="w-6 h-6 text-stone-600" />
-            </button>
+          {/* Room Header (Arrows removed as requested) */}
+          <div className="flex items-center justify-center mb-4">
             <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-1 rounded-full shadow-sm border border-white/50">
               {currentRoomData.icon}
               <span className="font-bold text-xs uppercase tracking-widest text-stone-600">{currentRoomData.name}</span>
             </div>
-            <button onClick={() => changeRoom('right')} className="p-2 bg-white/50 backdrop-blur-sm rounded-full hover:bg-white/80 transition-all">
-              <ChevronRight className="w-6 h-6 text-stone-600" />
-            </button>
           </div>
 
           {/* Pet Character Area */}
@@ -753,12 +754,6 @@ export default function Pet() {
                         strokeWidth="1.5" 
                       />
                       
-                      {/* Белая мордочка */}
-                      <path
-                        d="M45 125 C 55 150 105 150 115 125 C 105 140 90 145 80 145 C 70 145 55 140 45 125 Z"
-                        fill="white"
-                      />
-
                       {/* Щёчки - яркий румянец */}
                       <motion.circle 
                         cx="40" cy="130" r="10" fill="#FDA4AF" 
@@ -780,7 +775,7 @@ export default function Pet() {
                             fill="#FB7185"
                             animate={{ scale: [1, 1.1, 1] }}
                             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                            style={{ originX: "50%", originY: "50%" }}
+                            style={{ originX: "52px", originY: "105px" }}
                           />
                         ) : (
                           <>
@@ -809,7 +804,7 @@ export default function Pet() {
                             fill="#FB7185"
                             animate={{ scale: [1, 1.1, 1] }}
                             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                            style={{ originX: "50%", originY: "50%" }}
+                            style={{ originX: "108px", originY: "105px" }}
                           />
                         ) : (
                           <>
@@ -833,20 +828,6 @@ export default function Pet() {
 
                       {/* Носик - крошечный */}
                       <circle cx="80" cy="128" r="4" fill="#271105" />
-
-                      {/* Ротик / Поцелуй */}
-                      {isSendingLove && !showBodyHearts ? (
-                        <motion.path 
-                          d="M75 135 Q80 140 85 135" 
-                          stroke="#271105" 
-                          strokeWidth="2" 
-                          fill="none" 
-                          strokeLinecap="round"
-                          animate={{ scale: [1, 1.2, 1] }}
-                        />
-                      ) : (
-                        <path d="M75 135 Q80 138 85 135" stroke="#271105" strokeWidth="1" fill="none" strokeLinecap="round" />
-                      )}
 
                       {/* Лапки и рыбка при кормлении (поверх лица) */}
                       <motion.g
@@ -921,17 +902,19 @@ export default function Pet() {
                       {/* Ротик - милая "w" */}
                       <motion.path 
                         d={
-                          pet.happiness < 35
-                            ? "M72 145 Q80 138 88 145"
-                            : "M72 142 Q76 148 80 142 Q84 148 88 142"
+                          isSendingLove && !showBodyHearts
+                            ? "M75 142 Q80 147 85 142"
+                            : pet.happiness < 35
+                              ? "M72 145 Q80 138 88 145"
+                              : "M72 142 Q76 148 80 142 Q84 148 88 142"
                         }
                         stroke="#451A03"
                         strokeWidth="2.5"
                         fill="none"
                         strokeLinecap="round"
-                        animate={isFeeding ? { scaleY: [1, 1.08, 1], y: [0, 0.2, 0] } : { scaleY: 1, y: 0 }}
+                        animate={isFeeding ? { scaleY: [1, 1.08, 1], y: [0, 0.2, 0] } : { scaleY: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.5, repeat: isFeeding ? Infinity : 0 }}
-                        style={{ originX: "80px", originY: pet.happiness < 35 ? "145px" : "142px" }}
+                        style={{ originX: "80px", originY: isSendingLove && !showBodyHearts ? "142px" : pet.happiness < 35 ? "145px" : "142px" }}
                       />
 
                       {/* Сердечки при высоком счастье */}
@@ -1261,10 +1244,13 @@ export default function Pet() {
   );
 }
 
-function StatItem({ icon, value, color }: { icon: React.ReactNode, value: number, color: string }) {
+function StatItem({ icon, value, color, onClick, label }: { icon: React.ReactNode, value: number, color: string, onClick?: () => void, label?: string }) {
   return (
-    <div className="bg-white/80 backdrop-blur-sm p-2 rounded-2xl shadow-sm border border-white/50 flex flex-col items-center gap-1">
-      <div className={`${color} p-1.5 rounded-lg text-white`}>
+    <button 
+      onClick={onClick}
+      className="bg-white/80 backdrop-blur-sm p-2 rounded-2xl shadow-sm border border-white/50 flex flex-col items-center gap-1 transition-all hover:bg-white hover:scale-105 active:scale-95 group"
+    >
+      <div className={`${color} p-1.5 rounded-lg text-white group-hover:shadow-lg transition-all`}>
         {icon}
       </div>
       <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden mt-1">
@@ -1274,7 +1260,8 @@ function StatItem({ icon, value, color }: { icon: React.ReactNode, value: number
           className={`h-full ${color}`}
         />
       </div>
-    </div>
+      {label && <span className="text-[8px] font-bold uppercase tracking-tighter text-stone-400 mt-0.5">{label}</span>}
+    </button>
   );
 }
 
