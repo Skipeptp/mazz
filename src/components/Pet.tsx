@@ -632,7 +632,9 @@ export default function Pet() {
                 </div>
 
                 {/* Интерьер под конкретную комнату */}
-                <RoomInterior room={pet.currentRoom} />
+                <div className="absolute inset-0 z-0">
+                  <RoomInterior room={pet.currentRoom} />
+                </div>
 
                 {/* Анимация пузырьков при мытье */}
                 <AnimatePresence>
@@ -656,10 +658,14 @@ export default function Pet() {
                     repeat: showBodyHearts ? 0 : Infinity,
                     ease: "easeInOut"
                   }}
-                  className="relative z-10"
+                  className="relative z-10 overflow-visible"
                 >
-                  <div className="w-40 h-40 sm:w-48 sm:h-48 relative">
-                    <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-2xl">
+                  <div className="w-40 h-40 sm:w-48 sm:h-48 relative overflow-visible">
+                    <svg 
+                      viewBox="-30 0 260 200" 
+                      className="w-full h-full drop-shadow-2xl"
+                      style={{ overflow: 'visible' }}
+                    >
                       <defs>
                         <linearGradient id="foxFur" x1="0%" y1="0%" x2="0%" y2="100%">
                           <stop offset="0%" stopColor="#FB923C" />
@@ -689,13 +695,13 @@ export default function Pet() {
                         style={{ originX: "110px", originY: "145px" }}
                       >
                         <path
-                          d="M110 145 C 170 155 190 80 155 50 C 130 30 100 70 110 115"
+                          d="M110 145 C 160 150 175 80 150 50 C 130 30 100 70 110 115"
                           fill="url(#foxFur)"
                           stroke="#EA580C"
                           strokeWidth="1.5"
                         />
                         <path
-                          d="M155 50 C 175 65 180 90 160 100 C 145 90 135 75 155 50"
+                          d="M150 50 C 165 65 170 90 155 100 C 140 90 130 75 150 50"
                           fill="white"
                         />
                       </motion.g>
@@ -1315,16 +1321,42 @@ function RoomInterior({ room }: { room: PetState['currentRoom'] }) {
   if (room === 'kitchen') {
     return (
       <>
-        <div className="absolute top-4 left-4 right-4 h-10 bg-amber-100 rounded-2xl border border-amber-200 flex gap-2 px-3 items-center">
-          <div className="w-6 h-6 bg-amber-200 rounded-lg" />
-          <div className="w-10 h-6 bg-amber-200 rounded-lg" />
-          <div className="w-12 h-6 bg-amber-200 rounded-lg" />
+        {/* Окно */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-20 bg-sky-100 rounded-xl border-4 border-amber-200 overflow-hidden shadow-inner">
+          <div className="absolute inset-0 bg-gradient-to-b from-sky-300 to-sky-100" />
+          <div className="absolute top-2 left-2 w-10 h-8 bg-white/40 rounded-sm" />
+          <div className="absolute bottom-0 left-0 right-0 h-4 bg-emerald-400/30" />
+          <div className="absolute inset-0 border-r-2 border-amber-200/50 left-1/2" />
+          <div className="absolute inset-0 border-b-2 border-amber-200/50 top-1/2" />
         </div>
-        <div className="absolute bottom-20 left-6 right-6 h-10 bg-amber-300 rounded-2xl shadow-lg">
-          <div className="absolute inset-x-6 top-2 h-6 bg-amber-100 rounded-xl flex gap-3 items-center px-4">
-            <div className="w-4 h-4 bg-red-300 rounded-full" />
-            <div className="w-4 h-4 bg-green-300 rounded-full" />
-            <div className="w-4 h-4 bg-sky-300 rounded-full" />
+
+        {/* Плитка на стене */}
+        <div className="absolute top-24 left-0 right-0 h-12 grid grid-cols-8 gap-1 px-2 opacity-30">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-full bg-amber-100 rounded-sm border border-amber-200" />
+          ))}
+        </div>
+
+        {/* Полка */}
+        <div className="absolute top-36 left-4 right-4 h-2 bg-amber-300 rounded-full shadow-sm" />
+        <div className="absolute top-28 left-8 flex gap-3 items-end">
+          <div className="w-4 h-8 bg-rose-400 rounded-t-lg shadow-sm" />
+          <div className="w-5 h-6 bg-emerald-400 rounded-t-md shadow-sm" />
+          <div className="w-3 h-4 bg-sky-400 rounded-full shadow-sm" />
+        </div>
+
+        {/* Холодильник */}
+        <div className="absolute bottom-16 left-4 w-16 h-32 bg-stone-100 rounded-xl border-2 border-stone-200 shadow-lg">
+          <div className="absolute top-4 right-2 w-1 h-8 bg-stone-300 rounded-full" />
+          <div className="absolute top-16 left-0 right-0 h-[1px] bg-stone-200" />
+          <div className="absolute bottom-4 right-2 w-1 h-12 bg-stone-300 rounded-full" />
+        </div>
+
+        {/* Стол */}
+        <div className="absolute bottom-12 left-24 right-4 h-4 bg-amber-400 rounded-t-2xl shadow-md border-b-4 border-amber-500">
+          <div className="absolute -top-6 left-4 flex gap-2">
+            <div className="w-6 h-6 bg-white rounded-full border-2 border-stone-100 shadow-sm" />
+            <div className="w-4 h-6 bg-rose-200 rounded-sm shadow-sm" />
           </div>
         </div>
       </>
@@ -1334,13 +1366,40 @@ function RoomInterior({ room }: { room: PetState['currentRoom'] }) {
   if (room === 'bedroom') {
     return (
       <>
-        <div className="absolute top-6 left-6 w-24 h-20 bg-sky-200 rounded-2xl border border-sky-300 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-sky-200 to-sky-400" />
-          <div className="absolute inset-0 border-2 border-white/70 rounded-2xl" />
+        {/* Окно с ночным небом */}
+        <div className="absolute top-6 left-10 w-32 h-24 bg-indigo-950 rounded-2xl border-4 border-indigo-200 overflow-hidden shadow-2xl">
+          <div className="absolute top-4 left-6 w-1 h-1 bg-white rounded-full animate-pulse" />
+          <div className="absolute top-10 left-20 w-1 h-1 bg-white rounded-full animate-pulse delay-700" />
+          <div className="absolute top-16 left-8 w-1 h-1 bg-white rounded-full animate-pulse delay-1000" />
+          <div className="absolute top-4 right-6 w-4 h-4 bg-amber-100 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)]" />
+          <div className="absolute inset-0 border-r-2 border-indigo-200/30 left-1/2" />
+          <div className="absolute inset-0 border-b-2 border-indigo-200/30 top-1/2" />
         </div>
-        <div className="absolute bottom-18 left-8 right-8 h-16 bg-indigo-300 rounded-3xl shadow-xl">
-          <div className="absolute inset-x-3 top-2 h-7 bg-indigo-100 rounded-2xl" />
-          <div className="absolute inset-x-10 bottom-0 h-4 bg-indigo-500 rounded-t-3xl" />
+
+        {/* Картина на стене */}
+        <div className="absolute top-10 right-10 w-16 h-12 bg-rose-50 border-4 border-amber-800 rounded-sm shadow-md flex items-center justify-center overflow-hidden">
+          <div className="w-full h-full bg-gradient-to-tr from-emerald-200 to-sky-200 opacity-60" />
+          <div className="absolute w-4 h-4 bg-amber-400 rounded-full -bottom-1 -left-1" />
+        </div>
+
+        {/* Тумбочка */}
+        <div className="absolute bottom-16 left-6 w-16 h-16 bg-indigo-400 rounded-xl shadow-lg border-b-4 border-indigo-600">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 w-8 h-1 bg-indigo-200 rounded-full" />
+          <div className="absolute top-10 left-1/2 -translate-x-1/2 w-8 h-1 bg-indigo-200 rounded-full" />
+          {/* Лампа */}
+          <div className="absolute -top-10 left-1/2 -translate-x-1/2">
+            <div className="w-10 h-6 bg-amber-300 rounded-t-full shadow-sm" />
+            <div className="w-2 h-4 bg-stone-400 mx-auto" />
+          </div>
+        </div>
+
+        {/* Коврик */}
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-48 h-8 bg-indigo-200/50 rounded-full blur-sm" />
+        
+        {/* Кровать */}
+        <div className="absolute bottom-12 right-6 left-24 h-16 bg-indigo-500 rounded-3xl shadow-2xl border-b-8 border-indigo-700">
+          <div className="absolute -top-4 left-4 w-12 h-6 bg-indigo-100 rounded-t-2xl shadow-inner" />
+          <div className="absolute inset-x-2 top-2 h-8 bg-indigo-400/30 rounded-2xl" />
         </div>
       </>
     );
@@ -1349,33 +1408,87 @@ function RoomInterior({ room }: { room: PetState['currentRoom'] }) {
   if (room === 'bathroom') {
     return (
       <>
-        <div className="absolute top-0 left-0 right-0 h-2/3 bg-sky-100 grid grid-cols-6 grid-rows-3 opacity-70">
-          {Array.from({ length: 18 }).map((_, i) => (
-            <div key={i} className="border border-sky-200/60" />
+        {/* Плитка на всю стену */}
+        <div className="absolute inset-0 bg-sky-50 grid grid-cols-10 grid-rows-6 opacity-40">
+          {Array.from({ length: 60 }).map((_, i) => (
+            <div key={i} className="border border-sky-200/40" />
           ))}
         </div>
-        <div className="absolute bottom-20 left-10 right-10 h-16 bg-sky-50 rounded-full border border-sky-200 shadow-inner">
-          <div className="absolute inset-x-6 top-2 h-7 bg-sky-100 rounded-full" />
+
+        {/* Зеркало */}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 w-24 h-32 bg-white/40 backdrop-blur-md rounded-full border-4 border-sky-200 shadow-xl overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-transparent via-white/30 to-transparent -rotate-45 translate-y-[-50%]" />
         </div>
-        <div className="absolute top-6 right-12 w-2 h-18 bg-sky-300 rounded-full" />
+
+        {/* Полотенцесушитель */}
+        <div className="absolute top-10 left-6 w-12 h-24 flex flex-col gap-4">
+          <div className="h-1 bg-sky-300 rounded-full shadow-sm" />
+          <div className="h-1 bg-sky-300 rounded-full shadow-sm" />
+          <div className="h-1 bg-sky-300 rounded-full shadow-sm" />
+          {/* Полотенце */}
+          <div className="absolute top-2 left-2 w-8 h-16 bg-rose-200 rounded-sm shadow-md border-b-4 border-rose-300" />
+        </div>
+
+        {/* Раковина */}
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-32 h-10 bg-white rounded-full border-b-4 border-stone-200 shadow-lg">
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-4 h-8 bg-stone-300 rounded-t-full">
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-6 h-1 bg-stone-400 rounded-full" />
+          </div>
+        </div>
+
+        {/* Ванна */}
+        <div className="absolute bottom-10 left-6 right-6 h-16 bg-white rounded-b-[40px] rounded-t-xl border-b-8 border-stone-200 shadow-2xl overflow-hidden">
+          <div className="absolute inset-x-4 top-2 h-8 bg-sky-100/50 rounded-full shadow-inner" />
+          {/* Пузырьки */}
+          <div className="absolute top-1 left-10 w-4 h-4 bg-white/80 rounded-full" />
+          <div className="absolute top-2 left-16 w-3 h-3 bg-white/80 rounded-full" />
+          <div className="absolute top-1 right-12 w-5 h-5 bg-white/80 rounded-full" />
+        </div>
       </>
     );
   }
 
   return (
     <>
-      <div className="absolute top-6 left-4 right-4 h-6 flex items-center justify-between">
-        <div className="w-full h-[2px] bg-amber-300 rounded-full" />
+      {/* Гирлянда */}
+      <div className="absolute top-4 left-0 right-0 h-8 flex items-center justify-between px-4">
+        <div className="w-full h-[2px] bg-amber-300/50 rounded-full" />
         <div className="absolute inset-x-4 top-1 flex justify-between">
-          <div className="w-3 h-4 bg-rose-300 rounded-b-full" />
-          <div className="w-3 h-4 bg-emerald-300 rounded-b-full" />
-          <div className="w-3 h-4 bg-sky-300 rounded-b-full" />
-          <div className="w-3 h-4 bg-violet-300 rounded-b-full" />
+          <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }} className="w-4 h-6 bg-rose-400 rounded-b-full shadow-sm" />
+          <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 0.5 }} className="w-4 h-6 bg-emerald-400 rounded-b-full shadow-sm" />
+          <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 1 }} className="w-4 h-6 bg-sky-400 rounded-b-full shadow-sm" />
+          <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 1.5 }} className="w-4 h-6 bg-violet-400 rounded-b-full shadow-sm" />
+          <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 2 }} className="w-4 h-6 bg-amber-400 rounded-b-full shadow-sm" />
         </div>
       </div>
-      <div className="absolute bottom-18 left-8 right-8 h-18 bg-gradient-to-r from-rose-200 via-amber-200 to-sky-200 rounded-[999px] shadow-inner" />
-      <div className="absolute bottom-22 left-14 w-6 h-6 bg-emerald-400 rounded-2xl rotate-12" />
-      <div className="absolute bottom-24 right-14 w-7 h-7 bg-violet-400 rounded-full" />
+
+      {/* Постер на стене */}
+      <div className="absolute top-16 left-10 w-20 h-24 bg-white p-1 shadow-lg -rotate-6 border border-stone-100">
+        <div className="w-full h-full bg-amber-50 flex flex-col items-center justify-center gap-1">
+          <Heart className="w-8 h-8 text-rose-300 fill-rose-100" />
+          <div className="w-12 h-1 bg-stone-200 rounded-full" />
+          <div className="w-8 h-1 bg-stone-200 rounded-full" />
+        </div>
+      </div>
+
+      {/* Коробка с игрушками */}
+      <div className="absolute bottom-16 right-6 w-24 h-20 bg-amber-700 rounded-xl shadow-xl border-b-8 border-amber-900 overflow-hidden">
+        <div className="absolute -top-4 left-2 w-8 h-12 bg-rose-400 rounded-lg rotate-12 shadow-md" />
+        <div className="absolute -top-2 right-4 w-10 h-10 bg-sky-400 rounded-full shadow-md" />
+        <div className="absolute inset-x-0 top-0 h-4 bg-amber-800/50" />
+      </div>
+
+      {/* Мячик */}
+      <motion.div 
+        animate={{ x: [0, 20, 0], rotate: 360 }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute bottom-12 left-10 w-10 h-10 bg-gradient-to-tr from-violet-500 to-violet-300 rounded-full shadow-lg border-2 border-white/20"
+      >
+        <div className="absolute top-2 left-2 w-3 h-3 bg-white/30 rounded-full" />
+      </motion.div>
+
+      {/* Большой ковер */}
+      <div className="absolute bottom-10 left-6 right-6 h-12 bg-gradient-to-r from-rose-100 via-amber-100 to-sky-100 rounded-full shadow-inner border border-white/50 opacity-80" />
     </>
   );
 }
