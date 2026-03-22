@@ -21,117 +21,185 @@ interface DailyData {
   question: string;
 }
 
+const QUESTIONS = [
+  "Если бы мы могли прожить один день из нашего прошлого снова, какой бы ты выбрал(а)?",
+  "Какое твое самое яркое воспоминание о нас из самого начала отношений?",
+  "Если бы мы выиграли в лотерею завтра, что бы мы изменили в нашей жизни в первую очередь?",
+  "Какое качество во мне ты ценишь больше всего, но редко об этом говоришь?",
+  "Если бы мы могли переехать в любую точку мира на год, куда бы мы отправились?",
+  "Что для тебя значит 'идеальный вечер' со мной?",
+  "Какую суперсилу ты бы выбрал(а) для нас двоих?",
+  "Если бы мы писали книгу о нашей любви, как бы называлась первая глава?",
+  "О чем ты мечтаешь, когда не можешь уснуть?",
+  "Какое маленькое действие с моей стороны заставляет тебя чувствовать себя любимым(ой)?",
+  "Если бы мы могли пригласить любого исторического персонажа на ужин, кого бы мы выбрали?",
+  "Что в наших отношениях делает тебя сильнее как личность?",
+  "Какое приключение мы обязательно должны совершить в ближайшие 5 лет?",
+  "Если бы мы могли обменяться телами на один день, что бы ты сделал(а) первым делом?",
+  "Какое твое любимое место, где мы когда-либо были вместе?",
+  "Если бы мы могли создать свой собственный праздник, как бы он назывался и как бы мы его отмечали?",
+  "Что в нашем будущем пугает тебя меньше всего?",
+  "Какую песню ты бы выбрал(а) как саундтрек к нашей сегодняшней неделе?",
+  "Если бы мы могли научиться чему-то новому вместе за одну ночь, что бы это было?",
+  "Какое твое любимое качество в нашем 'мы'?"
+];
+
+const COUPLE_PREDICTIONS = [
+  "Сегодня идеальный день для того, чтобы просто побыть рядом. Звезды советуют отложить дела и насладиться тишиной вдвоем.",
+  "Ваша энергия сегодня находится в полной гармонии. Любое совместное начинание принесет радость и успех.",
+  "Маленький сюрприз или неожиданный комплимент сегодня сделают ваш вечер по-настоящему волшебным.",
+  "Звезды предсказывают глубокий и важный разговор, который поможет вам стать еще ближе друг к другу.",
+  "Сегодня отличный день для планирования будущего. Ваши мечты начинают обретать реальные очертания.",
+  "Романтика витает в воздухе. Даже обычный ужин может превратиться в незабываемое свидание.",
+  "Ваша поддержка друг друга сегодня будет особенно важна. Будьте внимательны к чувствам партнера.",
+  "Звезды советуют добавить немного спонтанности в ваши отношения сегодня. Сделайте что-то необычное!",
+  "Сегодня вы — отличная команда. Любые бытовые вопросы решатся легко и с улыбкой.",
+  "Ваша связь сегодня крепче, чем когда-либо. Наслаждайтесь этим чувством защищенности и тепла."
+];
+
 export default function Horoscope() {
   const [data, setData] = useState<DailyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchFromHoroMail = async (sign: string, isLove: boolean = false): Promise<string> => {
+    try {
+      const url = `https://horo.mail.ru/prediction/${sign}/today/${isLove ? 'love/' : ''}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+      const response = await fetch(proxyUrl);
+      const result = await response.json();
+      const html = result.contents;
+      
+      // Ищем основной текст прогноза в HTML
+      // Mail.ru обычно оборачивает текст в div с классом article__item_html
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const contentDiv = doc.querySelector('.article__item_html');
+      
+      if (contentDiv) {
+        // Убираем лишние теги и пробелы
+        return contentDiv.textContent?.trim() || "Прогноз временно недоступен.";
+      }
+      
+      // Запасной вариант - ищем параграфы
+      const paragraphs = doc.querySelectorAll('p');
+      if (paragraphs.length > 0) {
+        return Array.from(paragraphs)
+          .slice(0, 3)
+          .map(p => p.textContent)
+          .join(' ')
+          .trim();
+      }
+
+      throw new Error("Не удалось разобрать данные с сайта");
+    } catch (err) {
+      console.error(`Error fetching ${sign} horoscope:`, err);
+      return "Звезды сегодня хранят молчание, но это лишь повод прислушаться к своему сердцу.";
+    }
+  };
+
+  const generateLuckyData = (sign: string, date: string) => {
+    // Детерминированный рандом на основе даты и знака
+    const seed = sign + date;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    
+    const colors = ["Бирюзовый", "Изумрудный", "Золотистый", "Нежно-розовый", "Глубокий синий", "Лавандовый", "Терракотовый", "Серебристый", "Лимонный", "Коралловый"];
+    const luckyNumber = (Math.abs(hash) % 99) + 1;
+    const luckyColor = colors[Math.abs(hash) % colors.length];
+    
+    return { luckyNumber: String(luckyNumber), luckyColor };
+  };
 
   const fetchHoroscope = async () => {
     console.log("fetchHoroscope started");
     setLoading(true);
     setError(null);
     
-    // Get local date in YYYY-MM-DD format
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const today = `${year}-${month}-${day}`;
-    console.log("Today's date:", today);
+    const today = now.toISOString().split('T')[0];
     
     try {
-      // 1. Try to get from Firestore first
+      // 1. Сначала проверяем Firestore
       const docRef = doc(db, 'horoscopes', today);
-      console.log("Checking Firestore for doc:", today);
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
-        console.log("Using cached horoscope for", today);
         setData(docSnap.data() as DailyData);
         setLoading(false);
         return;
       }
 
-      // 2. If not found, fetch from Gemini
-      console.log("Fetching new horoscope for", today);
+      // 2. Если нет в базе, пробуем получить с сайта (через прокси)
+      console.log("Fetching from external sources...");
       
+      const [virgoText, ariesText, coupleText] = await Promise.all([
+        fetchFromHoroMail('virgo'),
+        fetchFromHoroMail('aries'),
+        fetchFromHoroMail('virgo', true) // Используем любовный гороскоп Девы как основу для пары
+      ]);
+
+      const virgoLucky = generateLuckyData('virgo', today);
+      const ariesLucky = generateLuckyData('aries', today);
+      
+      // Выбираем случайный вопрос и прогноз для пары (или используем Gemini если есть ключ)
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-      if (!apiKey) {
-        console.error("Gemini API key is missing (checked GEMINI_API_KEY and API_KEY)");
-        throw new Error("API ключ Gemini не настроен. Пожалуйста, убедитесь, что он добавлен в Secrets.");
-      }
+      let finalCouplePrediction = coupleText;
+      let finalQuestion = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
 
-      const aiInstance = new GoogleGenAI({ apiKey });
-      const model = "gemini-3-flash-preview";
-      const randomSeed = Math.floor(Math.random() * 1000);
-      const prompt = `Provide a detailed daily horoscope for today (${today}) for Virgo (Дева) and Aries (Овен) in Russian. 
-      Also provide a special prediction for them as a couple (Дева + Овен).
-      Also provide one unique, deep, and non-trivial question for the couple to discuss. 
-      
-      CRITICAL: The question must be highly diverse and different every time. 
-      Random Seed: ${randomSeed}
-      
-      Rotate between these themes: 
-      - Childhood memories and their impact.
-      - Future dreams and "what if" scenarios.
-      - Deep philosophical values.
-      - Emotional intimacy and vulnerability.
-      - Funny or absurd hypothetical situations.
-      - Appreciation of small details in each other.
-      Avoid clichés like "what is your favorite color" or "where do you see us in 5 years". 
-      Make it something that sparks a real, 15-minute conversation.
-      
-      For each individual sign (Virgo and Aries), include:
-      1. General prediction for the day.
-      2. Lucky number.
-      3. Lucky color.
-      
-      Return the data in JSON format:
-      {
-        "virgo": { "prediction": "...", "luckyNumber": "...", "luckyColor": "..." },
-        "aries": { "prediction": "...", "luckyNumber": "...", "luckyColor": "..." },
-        "couple": { "prediction": "..." },
-        "question": "..."
-      }`;
+      if (apiKey) {
+        try {
+          const aiInstance = new GoogleGenAI({ apiKey });
+          const model = "gemini-3-flash-preview";
+          const prompt = `На основе этих двух гороскопов:
+          Дева: ${virgoText}
+          Овен: ${ariesText}
+          
+          1. Напиши короткий (2-3 предложения) вдохновляющий прогноз для этой пары на сегодня.
+          2. Придумай один глубокий, необычный вопрос для их обсуждения сегодня.
+          
+          Верни JSON: {"couple": "...", "question": "..."}`;
 
-      console.log("Calling Gemini API...");
-      const response = await aiInstance.models.generateContent({
-        model: model,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json"
+          const response = await aiInstance.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+          });
+          
+          const result = JSON.parse(response.text || '{}');
+          if (result.couple) finalCouplePrediction = result.couple;
+          if (result.question) finalQuestion = result.question;
+        } catch (aiErr) {
+          console.warn("Gemini failed, using fallbacks", aiErr);
+          // Fallback уже установлен выше
+          if (finalCouplePrediction.length < 20) {
+            finalCouplePrediction = COUPLE_PREDICTIONS[Math.floor(Math.random() * COUPLE_PREDICTIONS.length)];
+          }
         }
-      });
-
-      console.log("Gemini raw response received");
-      let result;
-      try {
-        result = JSON.parse(response.text || '{}');
-      } catch (parseErr) {
-        console.error("JSON parse error:", parseErr, "Raw text:", response.text);
-        throw new Error("Не удалось обработать ответ от звезд");
-      }
-      
-      if (result.virgo && result.aries && result.couple && result.question) {
-        const dailyData: DailyData = {
-          date: today,
-          virgo: { sign: 'Дева', ...result.virgo },
-          aries: { sign: 'Овен', ...result.aries },
-          couple: result.couple,
-          question: result.question
-        };
-        
-        console.log("Saving new horoscope to Firestore...");
-        // Save to Firestore for everyone to see the same thing today
-        await setDoc(docRef, dailyData);
-        setData(dailyData);
       } else {
-        console.error("Incomplete data from Gemini:", result);
-        throw new Error("Не удалось получить полные данные гороскопа");
+        // Если ключа нет, используем заготовленные прогнозы
+        if (finalCouplePrediction.length < 20) {
+          finalCouplePrediction = COUPLE_PREDICTIONS[Math.floor(Math.random() * COUPLE_PREDICTIONS.length)];
+        }
       }
+
+      const dailyData: DailyData = {
+        date: today,
+        virgo: { sign: 'Дева', prediction: virgoText, ...virgoLucky },
+        aries: { sign: 'Овен', prediction: ariesText, ...ariesLucky },
+        couple: { prediction: finalCouplePrediction },
+        question: finalQuestion
+      };
+      
+      await setDoc(docRef, dailyData);
+      setData(dailyData);
+
     } catch (err) {
       console.error("Horoscope fetch error:", err);
-      setError(err instanceof Error ? err.message : "Не удалось загрузить прогноз. Попробуйте позже.");
+      setError("Не удалось загрузить прогноз. Попробуйте позже.");
     } finally {
       setLoading(false);
     }
