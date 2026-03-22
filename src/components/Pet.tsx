@@ -563,13 +563,15 @@ export default function Pet() {
 
   const moodText = pet.isSleeping
     ? `${pet.name} спит`
-    : pet.happiness < 40
-      ? `${pet.name} грустит`
-      : pet.hunger < 40
-        ? `${pet.name} голоден`
-        : pet.energy < 30
-          ? `${pet.name} устал`
-          : `${pet.name} доволен`;
+    : pet.hunger === 0
+      ? `${pet.name} умирает от голода! 😭`
+      : pet.happiness < 40
+        ? `${pet.name} грустит`
+        : pet.hunger < 40
+          ? `${pet.name} голоден`
+          : pet.energy < 30
+            ? `${pet.name} устал`
+            : `${pet.name} доволен`;
 
   return (
     <>
@@ -764,6 +766,43 @@ export default function Pet() {
                         <ellipse cx="80" cy="155" rx="48" ry="40" fill="url(#foxFur)" stroke="#EA580C" strokeWidth="1.5" />
                         <path d="M55 145 Q80 175 105 145 Q80 160 55 145" fill="url(#foxBelly)" />
                         
+                        {/* Журчание живота при голоде */}
+                        {pet.hunger === 0 && !pet.isSleeping && (
+                          <motion.g>
+                            {[0, 1, 2].map((i) => (
+                              <motion.path
+                                key={i}
+                                d="M65 160 Q80 170 95 160"
+                                stroke="#92400E"
+                                strokeWidth="1.5"
+                                fill="none"
+                                strokeLinecap="round"
+                                initial={{ opacity: 0, scale: 0.8, y: 0 }}
+                                animate={{ 
+                                  opacity: [0, 0.6, 0],
+                                  scale: [0.8, 1.2, 1.1],
+                                  y: [0, 4, 8]
+                                }}
+                                transition={{ 
+                                  duration: 2, 
+                                  repeat: Infinity, 
+                                  delay: i * 0.6,
+                                  ease: "easeInOut"
+                                }}
+                              />
+                            ))}
+                            <motion.g
+                              animate={{ 
+                                x: [-1, 1, -1],
+                                y: [-0.5, 0.5, -0.5]
+                              }}
+                              transition={{ duration: 0.1, repeat: Infinity }}
+                            >
+                              <path d="M60 155 Q80 170 100 155" stroke="#92400E" strokeWidth="1" fill="none" opacity="0.4" />
+                            </motion.g>
+                          </motion.g>
+                        )}
+                        
                         {/* Сердечки на теле */}
                         {showBodyHearts && (
                           <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -851,7 +890,7 @@ export default function Pet() {
                                   r={11} 
                                   fill="url(#foxEyeIris)"
                                   animate={{ 
-                                    scaleY: [1, 0.1, 1],
+                                    scaleY: pet.hunger === 0 ? 0.8 : [1, 0.1, 1],
                                     x: idleAnimation === 'look' ? [-4, 4, 0] : 0 
                                   }}
                                   transition={{ 
@@ -859,6 +898,17 @@ export default function Pet() {
                                     x: { duration: 2, repeat: 0 }
                                   }}
                                 />
+                                {/* Слезы при голоде */}
+                                {pet.hunger === 0 && (
+                                  <motion.path
+                                    d="M 52 110 Q 52 125 48 120"
+                                    stroke="#38BDF8"
+                                    strokeWidth="2"
+                                    fill="none"
+                                    animate={{ opacity: [0, 1, 0], y: [0, 5, 10] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                  />
+                                )}
                                 <motion.circle 
                                   cx="48" cy="100" r="5" fill="white" opacity="0.9" 
                                   animate={{ x: idleAnimation === 'look' ? [-4, 4, 0] : 0 }}
@@ -902,7 +952,7 @@ export default function Pet() {
                                   r={11} 
                                   fill="url(#foxEyeIris)"
                                   animate={{ 
-                                    scaleY: [1, 0.1, 1],
+                                    scaleY: pet.hunger === 0 ? 0.8 : [1, 0.1, 1],
                                     x: idleAnimation === 'look' ? [-4, 4, 0] : 0 
                                   }}
                                   transition={{ 
@@ -910,6 +960,17 @@ export default function Pet() {
                                     x: { duration: 2, repeat: 0 }
                                   }}
                                 />
+                                {/* Слезы при голоде */}
+                                {pet.hunger === 0 && (
+                                  <motion.path
+                                    d="M 108 110 Q 108 125 112 120"
+                                    stroke="#38BDF8"
+                                    strokeWidth="2"
+                                    fill="none"
+                                    animate={{ opacity: [0, 1, 0], y: [0, 5, 10] }}
+                                    transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                                  />
+                                )}
                                 <motion.circle 
                                   cx="104" cy="100" r="5" fill="white" opacity="0.9" 
                                   animate={{ x: idleAnimation === 'look' ? [-4, 4, 0] : 0 }}
@@ -1028,7 +1089,7 @@ export default function Pet() {
                         d={
                           isSendingLove && !showBodyHearts
                             ? "M75 142 Q80 147 85 142"
-                            : pet.happiness < 35
+                            : (pet.happiness < 35 || pet.hunger === 0)
                               ? "M72 145 Q80 138 88 145"
                               : "M72 142 Q76 148 80 142 Q84 148 88 142"
                         }
@@ -1049,6 +1110,18 @@ export default function Pet() {
                           transition={{ duration: 3, repeat: Infinity }}
                         >
                           <Heart x="150" y="80" className="w-6 h-6 text-rose-400 fill-rose-400" />
+                        </motion.g>
+                      )}
+
+                      {/* Облачко с просьбой еды */}
+                      {pet.hunger === 0 && !pet.isSleeping && (
+                        <motion.g
+                          initial={{ opacity: 0, scale: 0, x: 25, y: 50 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.5 }}
+                        >
+                          <path d="M130 40 Q130 15 160 15 Q190 15 190 40 Q190 65 160 65 Q150 65 140 60 L125 68 L135 55 Q130 50 130 40 Z" fill="white" stroke="#E2E8F0" strokeWidth="1" />
+                          <Utensils x="150" y="30" className="w-5 h-5 text-orange-400" />
                         </motion.g>
                       )}
 
@@ -1121,13 +1194,15 @@ export default function Pet() {
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3 mb-3">
             {pet.currentRoom === 'kitchen' && (
-              <ActionButton 
-                onClick={handleFeed}
-                icon={<Utensils />}
-                label={isFeeding ? "Кушаем..." : `Покормить (${pet.foodCount})`}
-                color="bg-orange-500"
-                disabled={pet.isSleeping || pet.foodCount <= 0 || isFeeding}
-              />
+              <>
+                <ActionButton 
+                  onClick={handleFeed}
+                  icon={<Utensils />}
+                  label={isFeeding ? "Кушаем..." : `Покормить (${pet.foodCount})`}
+                  color="bg-orange-500"
+                  disabled={pet.isSleeping || pet.foodCount <= 0 || isFeeding}
+                />
+              </>
             )}
             {pet.currentRoom === 'bedroom' && (
               <ActionButton 
