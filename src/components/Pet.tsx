@@ -34,6 +34,7 @@ import {
   OperationType
 } from '../firebase';
 import { PetState } from '../types';
+import { calculateForestState } from '../services/forestLogic';
 
 const ROOMS = [
   { id: 'kitchen', name: 'Кухня', icon: <Utensils /> },
@@ -148,14 +149,33 @@ export default function Pet() {
                   newHappiness !== data.happiness || 
                   newEnergy !== data.energy
                 ) {
+                  const forestUpdates = calculateForestState({
+                    ...data,
+                    hunger: newHunger,
+                    cleanliness: newCleanliness,
+                    happiness: newHappiness,
+                    energy: newEnergy
+                  });
+
                   updateDoc(petRef, {
                     hunger: newHunger,
                     cleanliness: newCleanliness,
                     happiness: newHappiness,
                     energy: newEnergy,
-                    lastUpdate: serverTimestamp()
+                    lastUpdate: serverTimestamp(),
+                    ...forestUpdates
                   });
                   return;
+                } else {
+                  // Даже если статы не изменились, проверяем логику леса (по времени)
+                  const forestUpdates = calculateForestState(data);
+                  if (Object.keys(forestUpdates).length > 0) {
+                    updateDoc(petRef, {
+                      ...forestUpdates,
+                      lastUpdate: serverTimestamp()
+                    });
+                    return;
+                  }
                 }
               }
             }
@@ -177,7 +197,10 @@ export default function Pet() {
           isSleeping: false,
           currentRoom: 'playroom',
           lastUpdate: serverTimestamp(),
-          lastCleanupDate: new Date().toISOString().split('T')[0]
+          lastCleanupDate: new Date().toISOString().split('T')[0],
+          isAtForest: false,
+          zeroStatsSince: null,
+          aboveZeroStatsSince: null
         };
         updateDoc(petRef, initialState as any).catch(() => {
           import('../firebase').then(({ setDoc }) => setDoc(petRef, initialState));
@@ -273,6 +296,24 @@ export default function Pet() {
     return () => unsub();
   }, []);
 
+  // Одноразовый эффект для возвращения в комнату по просьбе пользователя
+  useEffect(() => {
+    if (pet && pet.isAtForest) {
+      const petRef = doc(db, 'pet', 'frosh');
+      updateDoc(petRef, {
+        isAtForest: false,
+        hunger: 80,
+        energy: 80,
+        cleanliness: 80,
+        happiness: 80,
+        zeroStatsSince: null,
+        aboveZeroStatsSince: serverTimestamp(),
+        lastAction: 'Вернулся домой из леса ✨',
+        lastUpdate: serverTimestamp()
+      });
+    }
+  }, [pet === null]); // Run once when pet is loaded
+  
   // Подписка на историю ответов (все отвеченные вопросы)
   useEffect(() => {
     if (!auth.currentUser?.email) return;
@@ -563,19 +604,23 @@ export default function Pet() {
 
   const moodText = pet.isSleeping
     ? `${pet.name} спит`
-    : pet.hunger === 0
-      ? `${pet.name} умирает от голода! 😭`
-      : pet.happiness < 40
-        ? `${pet.name} грустит`
-        : pet.hunger < 40
-          ? `${pet.name} голоден`
-          : pet.energy < 30
-            ? `${pet.name} устал`
-            : `${pet.name} доволен`;
+    : pet.isAtForest
+      ? `${pet.name} в лесу... 🌲`
+      : pet.hunger === 0
+        ? `${pet.name} умирает от голода! 😭`
+        : pet.happiness < 40
+          ? `${pet.name} грустит`
+          : pet.hunger < 40
+            ? `${pet.name} голоден`
+            : pet.energy < 30
+              ? `${pet.name} устал`
+              : `${pet.name} доволен`;
 
   return (
     <>
-      <div className="max-w-md mx-auto bg-stone-50 rounded-[40px] shadow-2xl overflow-hidden border border-stone-100 relative">
+      <div className={`max-w-md mx-auto rounded-[40px] shadow-2xl overflow-hidden border relative transition-colors duration-1000 ${
+        pet.isAtForest ? 'bg-emerald-950 border-emerald-900' : 'bg-stone-50 border-stone-100'
+      }`}>
         {/* UI Overlay */}
         <div className="relative z-10 p-4 flex flex-col min-h-[650px]">
           {/* Stats Bar */}
@@ -666,15 +711,91 @@ export default function Pet() {
 
               {/* Комната‑карточка с интерьером и лисёнком */}
               <div className="w-full max-w-xs aspect-[4/3] bg-white/80 rounded-[32px] shadow-xl border border-white/70 relative overflow-hidden flex items-end justify-center">
-                {/* Базовая заливка стены/пола */}
-                <div className="absolute inset-0">
+                {/* Базовая заливка стены/пола (скрываем в лесу) */}
+                <div className={`absolute inset-0 transition-opacity duration-1000 ${pet.isAtForest ? 'opacity-0' : 'opacity-100'}`}>
                   <div className="absolute top-0 left-0 right-0 h-2/3 bg-gradient-to-b from-rose-50 via-amber-50/60 to-emerald-50/40" />
                   <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-b from-amber-100 to-amber-200" />
                 </div>
 
                 {/* Интерьер под конкретную комнату */}
                 <div className="absolute inset-0 z-0">
-                  <RoomInterior room={pet.currentRoom} />
+                  {pet.isAtForest ? (
+                    <div className="absolute inset-0 overflow-hidden">
+                      {/* Глубокая ночная атмосфера */}
+                      <div className="absolute inset-0 bg-[#061a12]" />
+                      <div className="absolute inset-0 bg-gradient-to-b from-[#061a12] via-[#0a2e1f] to-[#061a12] opacity-80" />
+                      
+                      {/* Дальние слои леса */}
+                      <div className="absolute bottom-0 left-0 w-full h-full flex justify-around items-end opacity-20 blur-[2px]">
+                        {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                          <div key={`far-${i}`} className="w-8 bg-emerald-900 rounded-t-full" style={{ height: `${40 + Math.sin(i) * 20}%`, transform: `translateX(${Math.cos(i) * 20}px)` }} />
+                        ))}
+                      </div>
+
+                      {/* Средние слои леса */}
+                      <div className="absolute bottom-0 left-0 w-full h-full flex justify-around items-end opacity-40 blur-[1px]">
+                        {[1, 2, 3, 4, 5].map(i => (
+                          <div key={`mid-${i}`} className="w-12 bg-[#0a2e1f] rounded-t-full" style={{ height: `${30 + i * 10}%`, transform: `translateX(${i * 5}px)` }} />
+                        ))}
+                      </div>
+
+                      {/* Туман */}
+                      <motion.div 
+                        animate={{ x: [-40, 40, -40], opacity: [0.3, 0.6, 0.3] }}
+                        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-0 bg-gradient-to-t from-emerald-900/40 via-transparent to-transparent pointer-events-none"
+                      />
+
+                      {/* Светлячки */}
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                        <motion.div
+                          key={`firefly-${i}`}
+                          animate={{ 
+                            opacity: [0, 1, 0],
+                            y: [0, -30, 0],
+                            x: [0, Math.sin(i) * 15, 0],
+                            scale: [1, 1.5, 1]
+                          }}
+                          transition={{ duration: 4 + i, repeat: Infinity, delay: i * 0.5 }}
+                          className="absolute w-1 h-1 bg-yellow-200 rounded-full blur-[1px] shadow-[0_0_8px_rgba(254,240,138,0.8)]"
+                          style={{ 
+                            left: `${(i * 13) % 100}%`, 
+                            top: `${(i * 17) % 100}%` 
+                          }}
+                        />
+                      ))}
+
+                      {/* Почва и трава */}
+                      <div className="absolute bottom-0 left-0 right-0 h-10 bg-[#04140e] opacity-80" />
+                      <div className="absolute bottom-0 left-0 right-0 h-12 flex items-end justify-between px-2 opacity-60">
+                         {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                           <div key={`grass-${i}`} className="w-6 h-8 bg-[#04140e] rounded-t-full" style={{ transform: `rotate(${Math.sin(i) * 10}deg)` }} />
+                         ))}
+                      </div>
+
+                      {/* Падающие листья */}
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <motion.div
+                          key={`leaf-${i}`}
+                          initial={{ y: -20, x: Math.random() * 300, rotate: 0 }}
+                          animate={{ 
+                            y: 300, 
+                            x: (Math.random() * 300) + Math.sin(i) * 50,
+                            rotate: 360 
+                          }}
+                          transition={{ 
+                            duration: 10 + Math.random() * 5, 
+                            repeat: Infinity, 
+                            delay: Math.random() * 10,
+                            ease: "linear"
+                          }}
+                          className="absolute w-2 h-2 bg-emerald-700/40 rounded-full blur-[0.5px]"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <RoomInterior room={pet.currentRoom} />
+                  )}
                   {/* Ночной оверлей при сне */}
                   <AnimatePresence>
                     {pet.isSleeping && (
@@ -720,16 +841,16 @@ export default function Pet() {
                     >
                       <defs>
                         <linearGradient id="foxFur" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#FB923C" />
-                          <stop offset="100%" stopColor="#F97316" />
+                          <stop offset="0%" stopColor="#FFFFFF" />
+                          <stop offset="100%" stopColor="#F3F4F6" />
                         </linearGradient>
                         <radialGradient id="foxFace" cx="50%" cy="50%" r="50%">
-                          <stop offset="0%" stopColor="#FDBA74" />
-                          <stop offset="100%" stopColor="#FB923C" />
+                          <stop offset="0%" stopColor="#F9FAFB" />
+                          <stop offset="100%" stopColor="#F3F4F6" />
                         </radialGradient>
                         <linearGradient id="foxBelly" x1="0%" y1="0%" x2="0%" y2="100%">
                           <stop offset="0%" stopColor="#FFFFFF" />
-                          <stop offset="100%" stopColor="#FFF1F2" />
+                          <stop offset="100%" stopColor="#E5E7EB" />
                         </linearGradient>
                         <radialGradient id="foxEyeIris" cx="50%" cy="50%" r="50%">
                           <stop offset="0%" stopColor="#6366F1" />
@@ -749,7 +870,7 @@ export default function Pet() {
                         <path
                           d="M110 145 C 160 150 175 80 150 50 C 130 30 100 70 110 115"
                           fill="url(#foxFur)"
-                          stroke="#EA580C"
+                          stroke="#D1D5DB"
                           strokeWidth="1.5"
                         />
                         <path
@@ -763,8 +884,23 @@ export default function Pet() {
                         animate={{ scale: pet.isSleeping ? [1, 1.06, 1] : [1, 1.02, 1] }}
                         transition={{ duration: pet.isSleeping ? 4 : 3, repeat: Infinity, ease: "easeInOut" }}
                       >
-                        <ellipse cx="80" cy="155" rx="48" ry="40" fill="url(#foxFur)" stroke="#EA580C" strokeWidth="1.5" />
-                        <path d="M55 145 Q80 175 105 145 Q80 160 55 145" fill="url(#foxBelly)" />
+                        <ellipse 
+                          cx="80" cy="155" rx="48" ry="40" 
+                          fill={pet.isAtForest ? "#9CA3AF" : "url(#foxFur)"} 
+                          stroke={pet.isAtForest ? "#4B5563" : "#D1D5DB"} 
+                          strokeWidth="1.5" 
+                        />
+                        <path d="M55 145 Q80 175 105 145 Q80 160 55 145" fill={pet.isAtForest ? "#A8A29E" : "url(#foxBelly)"} />
+                        
+                        {/* Грязь на теле в лесу */}
+                        {pet.isAtForest && (
+                          <g opacity="0.6">
+                            <circle cx="60" cy="165" r="4" fill="#451A03" />
+                            <circle cx="100" cy="170" r="3" fill="#451A03" />
+                            <circle cx="80" cy="180" r="5" fill="#451A03" />
+                            <path d="M50 170 Q55 175 60 170" stroke="#451A03" strokeWidth="2" fill="none" />
+                          </g>
+                        )}
                         
                         {/* Журчание живота при голоде */}
                         {pet.hunger === 0 && !pet.isSleeping && (
@@ -829,25 +965,34 @@ export default function Pet() {
                         transition={{ duration: idleAnimation === 'ears' ? 0.4 : 4, repeat: Infinity, delay: 1 }}
                         style={{ originX: "45px", originY: "70px" }}
                       >
-                        <path d="M45 70 L5 15 L70 55 Z" fill="#F97316" stroke="#EA580C" strokeWidth="1.5" />
-                        <path d="M45 70 L15 30 L60 55 Z" fill="#FFE4E6" />
+                        <path d="M45 70 Q15 40 35 35 Q55 30 70 55 Z" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="1.5" />
+                        <path d="M45 70 Q25 50 40 45 Q55 40 60 55 Z" fill="#FFE4E6" />
                       </motion.g>
                       <motion.g
                         animate={{ rotate: pet.isSleeping ? 0 : idleAnimation === 'ears' ? [0, -15, 0, -15, 0] : [0, -5, 0, 5, 0] }}
                         transition={{ duration: idleAnimation === 'ears' ? 0.4 : 4, repeat: Infinity, delay: 1.5 }}
                         style={{ originX: "115px", originY: "70px" }}
                       >
-                        <path d="M115 70 L155 15 L90 55 Z" fill="#F97316" stroke="#EA580C" strokeWidth="1.5" />
-                        <path d="M115 70 L145 30 L100 55 Z" fill="#FFE4E6" />
+                        <path d="M115 70 Q145 40 125 35 Q105 30 90 55 Z" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="1.5" />
+                        <path d="M115 70 Q135 50 120 45 Q105 40 100 55 Z" fill="#FFE4E6" />
                       </motion.g>
 
                       {/* Голова - большая и круглая (Chibi style) */}
                       <path 
                         d="M25 105 Q15 80 40 65 Q80 45 120 65 Q145 80 135 105 Q145 125 125 145 Q80 165 35 145 Q15 125 25 105" 
-                        fill="url(#foxFace)" 
-                        stroke="#EA580C" 
+                        fill={pet.isAtForest ? "#9CA3AF" : "url(#foxFace)"} 
+                        stroke={pet.isAtForest ? "#4B5563" : "#D1D5DB"} 
                         strokeWidth="1.5" 
                       />
+                      
+                      {/* Грязь на голове в лесу */}
+                      {pet.isAtForest && (
+                        <g opacity="0.5">
+                          <circle cx="40" cy="80" r="3" fill="#451A03" />
+                          <circle cx="120" cy="85" r="4" fill="#451A03" />
+                          <path d="M70 60 Q80 65 90 60" stroke="#451A03" strokeWidth="2" fill="none" />
+                        </g>
+                      )}
                       
                       {/* Щёчки - яркий румянец */}
                       <motion.circle 
@@ -1089,8 +1234,8 @@ export default function Pet() {
                         d={
                           isSendingLove && !showBodyHearts
                             ? "M75 142 Q80 147 85 142"
-                            : (pet.happiness < 35 || pet.hunger === 0)
-                              ? "M72 145 Q80 138 88 145"
+                            : (pet.happiness < 35 || pet.hunger === 0 || pet.isAtForest)
+                              ? "M72 145 Q80 138 88 145" // Грустный ротик
                               : "M72 142 Q76 148 80 142 Q84 148 88 142"
                         }
                         stroke="#451A03"

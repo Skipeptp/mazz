@@ -56,4 +56,7 @@ export interface PetState {
   currentRoom: 'kitchen' | 'bedroom' | 'bathroom' | 'playroom';
   lastUpdate: any;
   lastCleanupDate?: string; // YYYY-MM-DD
+  isAtForest?: boolean;
+  zeroStatsSince?: any; // Timestamp when any stat first hit zero
+  aboveZeroStatsSince?: any; // Timestamp when all stats first became > 0
 }
