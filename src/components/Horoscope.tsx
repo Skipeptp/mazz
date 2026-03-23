@@ -62,39 +62,78 @@ export default function Horoscope() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchFromHoroMail = async (sign: string, isLove: boolean = false): Promise<string> => {
+  const fetchFromHoroMail = async (sign: string, isLove: boolean = false, apiKey?: string): Promise<string> => {
+    const signRu = sign === 'virgo' ? 'Дева' : 'Овен';
+    const dateStr = new Date().toLocaleDateString('ru-RU');
+
     try {
       const url = `https://horo.mail.ru/prediction/${sign}/today/${isLove ? 'love/' : ''}`;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-      const response = await fetch(proxyUrl);
-      const result = await response.json();
-      const html = result.contents;
+      // Пробуем несколько прокси
+      const proxies = [
+        `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?${encodeURIComponent(url)}`
+      ];
+
+      let html = '';
+      for (const proxy of proxies) {
+        try {
+          const response = await fetch(proxy);
+          if (!response.ok) continue;
+          const result = await response.json();
+          // allorigins возвращает в .contents, corsproxy напрямую
+          html = result.contents || (typeof result === 'string' ? result : await response.text());
+          if (html) break;
+        } catch (e) {
+          continue;
+        }
+      }
+
+      if (!html) throw new Error("Все прокси недоступны");
       
-      // Ищем основной текст прогноза в HTML
-      // Mail.ru обычно оборачивает текст в div с классом article__item_html
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       const contentDiv = doc.querySelector('.article__item_html');
       
       if (contentDiv) {
-        // Убираем лишние теги и пробелы
         return contentDiv.textContent?.trim() || "Прогноз временно недоступен.";
       }
       
-      // Запасной вариант - ищем параграфы
       const paragraphs = doc.querySelectorAll('p');
       if (paragraphs.length > 0) {
-        return Array.from(paragraphs)
+        const text = Array.from(paragraphs)
           .slice(0, 3)
           .map(p => p.textContent)
           .join(' ')
           .trim();
+        if (text.length > 20) return text;
       }
 
       throw new Error("Не удалось разобрать данные с сайта");
     } catch (err) {
       console.error(`Error fetching ${sign} horoscope:`, err);
-      return "Звезды сегодня хранят молчание, но это лишь повод прислушаться к своему сердцу.";
+      
+      // Если есть API ключ, генерируем гороскоп через Gemini
+      if (apiKey) {
+        try {
+          const aiInstance = new GoogleGenAI({ apiKey });
+          const model = "gemini-3-flash-preview";
+          const prompt = `Напиши вдохновляющий и реалистичный гороскоп для знака ${signRu} на сегодня (${dateStr}). 
+          ${isLove ? 'Это должен быть любовный гороскоп.' : 'Это должен быть общий гороскоп.'}
+          Текст должен быть на русском языке, объемом 2-3 предложения. 
+          Стиль: теплый, мудрый, немного загадочный.`;
+
+          const response = await aiInstance.models.generateContent({
+            model: model,
+            contents: prompt,
+          });
+          
+          if (response.text) return response.text.trim();
+        } catch (aiErr) {
+          console.error("Gemini fallback failed:", aiErr);
+        }
+      }
+
+      return "Звезды сегодня благоволят вашим начинаниям. Прислушайтесь к интуиции — она подскажет верный путь к гармонии и успеху.";
     }
   };
 
@@ -135,18 +174,18 @@ export default function Horoscope() {
 
       // 2. Если нет в базе, пробуем получить с сайта (через прокси)
       console.log("Fetching from external sources...");
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       
       const [virgoText, ariesText, coupleText] = await Promise.all([
-        fetchFromHoroMail('virgo'),
-        fetchFromHoroMail('aries'),
-        fetchFromHoroMail('virgo', true) // Используем любовный гороскоп Девы как основу для пары
+        fetchFromHoroMail('virgo', false, apiKey),
+        fetchFromHoroMail('aries', false, apiKey),
+        fetchFromHoroMail('virgo', true, apiKey) // Используем любовный гороскоп Девы как основу для пары
       ]);
 
       const virgoLucky = generateLuckyData('virgo', today);
       const ariesLucky = generateLuckyData('aries', today);
       
       // Выбираем случайный вопрос и прогноз для пары (или используем Gemini если есть ключ)
-      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       let finalCouplePrediction = coupleText;
       let finalQuestion = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
 
