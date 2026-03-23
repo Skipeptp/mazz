@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, db, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, updateDoc, handleFirestoreError, OperationType } from '../firebase';
 import { Note } from '../types';
 import { format } from 'date-fns';
-import { Plus, Trash2, X, Check, StickyNote, ListTodo, Square, CheckSquare } from 'lucide-react';
+import { Plus, Trash2, X, Check, StickyNote, ListTodo, Square, CheckSquare, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 
@@ -13,6 +13,7 @@ const COLORS = [
 export default function Notes() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [newNote, setNewNote] = useState({ 
     title: '', 
     content: '', 
@@ -42,12 +43,19 @@ export default function Notes() {
 
     setIsSaving(true);
     try {
-      await addDoc(collection(db, 'notes'), {
-        ...newNote,
-        authorId: auth.currentUser.uid,
-        authorName: auth.currentUser.displayName || 'Unknown',
-        timestamp: serverTimestamp()
-      });
+      if (editingNoteId) {
+        await updateDoc(doc(db, 'notes', editingNoteId), {
+          ...newNote,
+          timestamp: serverTimestamp() // Optional: update timestamp on edit
+        });
+      } else {
+        await addDoc(collection(db, 'notes'), {
+          ...newNote,
+          authorId: auth.currentUser.uid,
+          authorName: auth.currentUser.displayName || 'Unknown',
+          timestamp: serverTimestamp()
+        });
+      }
       setNewNote({ 
         title: '', 
         content: '', 
@@ -56,11 +64,36 @@ export default function Notes() {
         items: []
       });
       setIsAdding(false);
+      setEditingNoteId(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'notes');
+      handleFirestoreError(error, editingNoteId ? OperationType.UPDATE : OperationType.CREATE, 'notes');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const startEditing = (note: Note) => {
+    setNewNote({
+      title: note.title || '',
+      content: note.content || '',
+      color: note.color || COLORS[0],
+      type: note.type || 'text',
+      items: note.items || []
+    });
+    setEditingNoteId(note.id || null);
+    setIsAdding(true);
+  };
+
+  const closeAdding = () => {
+    setIsAdding(false);
+    setEditingNoteId(null);
+    setNewNote({ 
+      title: '', 
+      content: '', 
+      color: COLORS[0], 
+      type: 'text',
+      items: []
+    });
   };
 
   const deleteNote = async (id: string) => {
@@ -142,7 +175,7 @@ export default function Notes() {
                     Список
                   </button>
                 </div>
-                <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-black/5 rounded-full">
+                <button onClick={closeAdding} className="p-2 hover:bg-black/5 rounded-full">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -257,12 +290,20 @@ export default function Notes() {
                 {note.type === 'list' ? <ListTodo className="w-3 h-3" /> : <StickyNote className="w-3 h-3" />}
                 <span>{note.authorName} • {note.timestamp?.toDate ? format(note.timestamp.toDate(), 'd MMM') : '...'}</span>
               </div>
-              <button
-                onClick={() => note.id && deleteNote(note.id)}
-                className="p-2 hover:bg-rose-100 hover:text-rose-500 rounded-full transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => startEditing(note)}
+                  className="p-2 hover:bg-stone-100 hover:text-stone-800 rounded-full transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => note.id && deleteNote(note.id)}
+                  className="p-2 hover:bg-rose-100 hover:text-rose-500 rounded-full transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </motion.div>
         ))}
