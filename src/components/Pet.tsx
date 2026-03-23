@@ -124,7 +124,7 @@ export default function Pet() {
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
             if (diffMinutes > 0) {
-              const hungerDecay = Math.floor(diffMinutes / 3);
+              const hungerDecay = Math.floor(diffMinutes / 6);
               const cleanlinessDecay = Math.floor(diffMinutes / 15);
               const happinessDecay = Math.floor(diffMinutes / 6);
               
