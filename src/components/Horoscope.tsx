@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { motion } from 'motion/react';
 import { Sparkles, Moon, Sun, Star, RefreshCw, Heart, HelpCircle } from 'lucide-react';
-import { db, doc, getDoc, setDoc } from '../firebase';
+import { db, auth, doc, getDoc, setDoc } from '../firebase';
 
 interface HoroscopeData {
   sign: string;
@@ -62,78 +62,49 @@ export default function Horoscope() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchFromHoroMail = async (sign: string, isLove: boolean = false, apiKey?: string): Promise<string> => {
+  const FALLBACK_TEXT = "Звезды сегодня благоволят вашим начинаниям. Прислушайтесь к интуиции — она подскажет верный путь к гармонии и успеху.";
+
+  const generateHoroscopeWithAI = async (sign: string, isLove: boolean = false, apiKey: string): Promise<string> => {
     const signRu = sign === 'virgo' ? 'Дева' : 'Овен';
-    const dateStr = new Date().toLocaleDateString('ru-RU');
+    const dateStr = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+
+    const tryGenerate = async (useSearch: boolean) => {
+      const aiInstance = new GoogleGenAI({ apiKey });
+      const model = "gemini-3.1-flash-lite-preview";
+      
+      const prompt = `Напиши актуальный гороскоп для знака ${signRu} на сегодня (${dateStr}). 
+      ${isLove ? 'Это должен быть любовный гороскоп.' : 'Это должен быть общий гороскоп.'}
+      Напиши вдохновляющий и реалистичный прогноз на русском языке.
+      Объем: 2-3 предложения. Стиль: теплый, мудрый, немного загадочный.
+      ${useSearch ? 'Используй поиск в интернете для получения актуальных данных о положении звезд.' : 'Основывайся на типичных чертах знака и общих астрологических тенденциях.'}`;
+
+      const config: any = {};
+      if (useSearch) {
+        config.tools = [{ googleSearch: {} }];
+      }
+
+      const response = await aiInstance.models.generateContent({
+        model: model,
+        contents: prompt,
+        config: config
+      });
+      
+      return response.text?.trim() || "";
+    };
 
     try {
-      const url = `https://horo.mail.ru/prediction/${sign}/today/${isLove ? 'love/' : ''}`;
-      // Пробуем несколько прокси
-      const proxies = [
-        `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-        `https://corsproxy.io/?${encodeURIComponent(url)}`
-      ];
-
-      let html = '';
-      for (const proxy of proxies) {
-        try {
-          const response = await fetch(proxy);
-          if (!response.ok) continue;
-          const result = await response.json();
-          // allorigins возвращает в .contents, corsproxy напрямую
-          html = result.contents || (typeof result === 'string' ? result : await response.text());
-          if (html) break;
-        } catch (e) {
-          continue;
-        }
-      }
-
-      if (!html) throw new Error("Все прокси недоступны");
+      // Сначала пробуем с поиском
+      let text = await tryGenerate(true);
+      if (text && text.length > 20) return text;
       
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const contentDiv = doc.querySelector('.article__item_html');
+      // Если не вышло, пробуем без поиска
+      text = await tryGenerate(false);
+      if (text && text.length > 20) return text;
       
-      if (contentDiv) {
-        return contentDiv.textContent?.trim() || "Прогноз временно недоступен.";
-      }
-      
-      const paragraphs = doc.querySelectorAll('p');
-      if (paragraphs.length > 0) {
-        const text = Array.from(paragraphs)
-          .slice(0, 3)
-          .map(p => p.textContent)
-          .join(' ')
-          .trim();
-        if (text.length > 20) return text;
-      }
-
-      throw new Error("Не удалось разобрать данные с сайта");
+      throw new Error("Empty or short response from Gemini");
     } catch (err) {
-      console.error(`Error fetching ${sign} horoscope:`, err);
-      
-      // Если есть API ключ, генерируем гороскоп через Gemini
-      if (apiKey) {
-        try {
-          const aiInstance = new GoogleGenAI({ apiKey });
-          const model = "gemini-3-flash-preview";
-          const prompt = `Напиши вдохновляющий и реалистичный гороскоп для знака ${signRu} на сегодня (${dateStr}). 
-          ${isLove ? 'Это должен быть любовный гороскоп.' : 'Это должен быть общий гороскоп.'}
-          Текст должен быть на русском языке, объемом 2-3 предложения. 
-          Стиль: теплый, мудрый, немного загадочный.`;
-
-          const response = await aiInstance.models.generateContent({
-            model: model,
-            contents: prompt,
-          });
-          
-          if (response.text) return response.text.trim();
-        } catch (aiErr) {
-          console.error("Gemini fallback failed:", aiErr);
-        }
-      }
-
-      return "Звезды сегодня благоволят вашим начинаниям. Прислушайтесь к интуиции — она подскажет верный путь к гармонии и успеху.";
+      console.error(`Gemini generation failed for ${sign}:`, err);
+      return FALLBACK_TEXT;
     }
   };
 
@@ -153,76 +124,96 @@ export default function Horoscope() {
     return { luckyNumber: String(luckyNumber), luckyColor };
   };
 
-  const fetchHoroscope = async () => {
-    console.log("fetchHoroscope started");
+  const handleFirestoreError = (error: unknown, operationType: string, path: string | null) => {
+    const errInfo = {
+      error: error instanceof Error ? error.message : String(error),
+      authInfo: {
+        userId: auth.currentUser?.uid,
+        email: auth.currentUser?.email,
+      },
+      operationType,
+      path
+    };
+    console.error('Firestore Error:', JSON.stringify(errInfo));
+    // Не пробрасываем ошибку дальше, чтобы не ломать UI, но логируем
+  };
+
+  const fetchHoroscope = async (forceRefresh: boolean = false) => {
+    console.log("fetchHoroscope started", { forceRefresh });
     setLoading(true);
     setError(null);
     
+    // Используем локальную дату для ключа, чтобы пользователи видели прогноз на свой "сегодня"
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
     
     try {
-      // 1. Сначала проверяем Firestore
+      // 1. Сначала проверяем Firestore (если не форсируем обновление)
       const docRef = doc(db, 'horoscopes', today);
-      const docSnap = await getDoc(docRef);
       
-      if (docSnap.exists()) {
-        setData(docSnap.data() as DailyData);
-        setLoading(false);
-        return;
+      if (!forceRefresh) {
+        let docSnap;
+        try {
+          docSnap = await getDoc(docRef);
+        } catch (err) {
+          handleFirestoreError(err, 'get', `horoscopes/${today}`);
+        }
+        
+        if (docSnap && docSnap.exists()) {
+          const existingData = docSnap.data() as DailyData;
+          // Проверяем, что это не пустой объект и не заглушка
+          if (existingData.virgo?.prediction && existingData.virgo.prediction !== FALLBACK_TEXT) {
+            setData(existingData);
+            setLoading(false);
+            return;
+          }
+        }
       }
 
-      // 2. Если нет в базе, пробуем получить с сайта (через прокси)
-      console.log("Fetching from external sources...");
+      // 2. Если нет в базе или данные неполные, генерируем через Gemini
+      console.log("Generating new horoscope for today...");
       const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       
-      const [virgoText, ariesText, coupleText] = await Promise.all([
-        fetchFromHoroMail('virgo', false, apiKey),
-        fetchFromHoroMail('aries', false, apiKey),
-        fetchFromHoroMail('virgo', true, apiKey) // Используем любовный гороскоп Девы как основу для пары
+      if (!apiKey) {
+        throw new Error("API Key is missing. Пожалуйста, настройте ключи в Settings.");
+      }
+
+      const [virgoText, ariesText] = await Promise.all([
+        generateHoroscopeWithAI('virgo', false, apiKey),
+        generateHoroscopeWithAI('aries', false, apiKey)
       ]);
 
       const virgoLucky = generateLuckyData('virgo', today);
       const ariesLucky = generateLuckyData('aries', today);
       
-      // Выбираем случайный вопрос и прогноз для пары (или используем Gemini если есть ключ)
-      let finalCouplePrediction = coupleText;
-      let finalQuestion = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
+      let finalCouplePrediction = "";
+      let finalQuestion = "";
 
-      if (apiKey) {
-        try {
-          const aiInstance = new GoogleGenAI({ apiKey });
-          const model = "gemini-3-flash-preview";
-          const prompt = `На основе этих двух гороскопов:
-          Дева: ${virgoText}
-          Овен: ${ariesText}
-          
-          1. Напиши короткий (2-3 предложения) вдохновляющий прогноз для этой пары на сегодня.
-          2. Придумай один глубокий, необычный вопрос для их обсуждения сегодня.
-          
-          Верни JSON: {"couple": "...", "question": "..."}`;
+      try {
+        const aiInstance = new GoogleGenAI({ apiKey });
+        const model = "gemini-3.1-flash-lite-preview";
+        const prompt = `На основе этих двух гороскопов:
+        Дева: ${virgoText}
+        Овен: ${ariesText}
+        
+        1. Напиши короткий (2-3 предложения) вдохновляющий прогноз для этой пары (Дева + Овен) на сегодня.
+        2. Придумай один глубокий, необычный вопрос для их обсуждения сегодня, который поможет им стать ближе.
+        
+        Верни JSON: {"couple": "...", "question": "..."}`;
 
-          const response = await aiInstance.models.generateContent({
-            model: model,
-            contents: prompt,
-            config: { responseMimeType: "application/json" }
-          });
-          
-          const result = JSON.parse(response.text || '{}');
-          if (result.couple) finalCouplePrediction = result.couple;
-          if (result.question) finalQuestion = result.question;
-        } catch (aiErr) {
-          console.warn("Gemini failed, using fallbacks", aiErr);
-          // Fallback уже установлен выше
-          if (finalCouplePrediction.length < 20) {
-            finalCouplePrediction = COUPLE_PREDICTIONS[Math.floor(Math.random() * COUPLE_PREDICTIONS.length)];
-          }
-        }
-      } else {
-        // Если ключа нет, используем заготовленные прогнозы
-        if (finalCouplePrediction.length < 20) {
-          finalCouplePrediction = COUPLE_PREDICTIONS[Math.floor(Math.random() * COUPLE_PREDICTIONS.length)];
-        }
+        const response = await aiInstance.models.generateContent({
+          model: model,
+          contents: prompt,
+          config: { responseMimeType: "application/json" }
+        });
+        
+        const result = JSON.parse(response.text || '{}');
+        finalCouplePrediction = result.couple || COUPLE_PREDICTIONS[Math.floor(Math.random() * COUPLE_PREDICTIONS.length)];
+        finalQuestion = result.question || QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
+      } catch (aiErr) {
+        console.warn("Gemini couple generation failed", aiErr);
+        finalCouplePrediction = COUPLE_PREDICTIONS[Math.floor(Math.random() * COUPLE_PREDICTIONS.length)];
+        finalQuestion = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
       }
 
       const dailyData: DailyData = {
@@ -233,12 +224,20 @@ export default function Horoscope() {
         question: finalQuestion
       };
       
-      await setDoc(docRef, dailyData);
+      // Сохраняем в Firestore только если мы получили реальные данные (не заглушки)
+      if (virgoText !== FALLBACK_TEXT && ariesText !== FALLBACK_TEXT) {
+        try {
+          await setDoc(docRef, dailyData);
+        } catch (dbErr) {
+          handleFirestoreError(dbErr, 'write', `horoscopes/${today}`);
+        }
+      }
+      
       setData(dailyData);
 
     } catch (err) {
       console.error("Horoscope fetch error:", err);
-      setError("Не удалось загрузить прогноз. Попробуйте позже.");
+      setError(err instanceof Error ? err.message : "Не удалось загрузить прогноз.");
     } finally {
       setLoading(false);
     }
@@ -247,6 +246,21 @@ export default function Horoscope() {
   useEffect(() => {
     console.log("Horoscope component mounted");
     fetchHoroscope();
+
+    // Проверка смены даты каждые 30 минут для автоматического обновления
+    const interval = setInterval(() => {
+      const now = new Date();
+      const today = now.toLocaleDateString('en-CA');
+      // Если компонент смонтирован и дата изменилась, обновляем
+      setData(prev => {
+        if (prev && prev.date !== today) {
+          fetchHoroscope();
+        }
+        return prev;
+      });
+    }, 30 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -268,7 +282,7 @@ export default function Horoscope() {
       <div className="text-center py-20 px-4">
         <p className="text-rose-500 mb-4">{error || "Что-то пошло не так"}</p>
         <button 
-          onClick={fetchHoroscope}
+          onClick={() => fetchHoroscope()}
           className="flex items-center gap-2 mx-auto px-6 py-2 bg-stone-800 text-white rounded-full hover:bg-stone-700 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
@@ -280,9 +294,16 @@ export default function Horoscope() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-8 pb-12">
-      <header className="text-center space-y-2">
+      <header className="text-center space-y-2 relative">
         <h2 className="font-serif text-4xl text-stone-800">Звездный прогноз</h2>
         <p className="text-stone-500 italic">Обновляется раз в день • {new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</p>
+        <button 
+          onClick={() => fetchHoroscope(true)}
+          className="absolute top-0 right-0 p-2 text-stone-400 hover:text-amber-500 transition-colors"
+          title="Обновить прогноз"
+        >
+          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </header>
 
       {/* Individual Predictions */}

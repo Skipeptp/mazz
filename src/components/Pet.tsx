@@ -959,22 +959,22 @@ export default function Pet() {
                         style={{ originX: "80px", originY: "152px" }}
                       />
 
-                      {/* Уши - большие и мягкие */}
+                      {/* Уши - большие и острые */}
                       <motion.g
                         animate={{ rotate: pet.isSleeping ? 0 : idleAnimation === 'ears' ? [0, 15, 0, 15, 0] : [0, 5, 0, -5, 0] }}
                         transition={{ duration: idleAnimation === 'ears' ? 0.4 : 4, repeat: Infinity, delay: 1 }}
                         style={{ originX: "45px", originY: "70px" }}
                       >
-                        <path d="M45 70 Q15 40 35 35 Q55 30 70 55 Z" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="1.5" />
-                        <path d="M45 70 Q25 50 40 45 Q55 40 60 55 Z" fill="#FFE4E6" />
+                        <path d="M45 70 L15 15 L70 55 Z" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="1.5" />
+                        <path d="M45 70 L25 40 L60 55 Z" fill="#FFE4E6" />
                       </motion.g>
                       <motion.g
                         animate={{ rotate: pet.isSleeping ? 0 : idleAnimation === 'ears' ? [0, -15, 0, -15, 0] : [0, -5, 0, 5, 0] }}
                         transition={{ duration: idleAnimation === 'ears' ? 0.4 : 4, repeat: Infinity, delay: 1.5 }}
                         style={{ originX: "115px", originY: "70px" }}
                       >
-                        <path d="M115 70 Q145 40 125 35 Q105 30 90 55 Z" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="1.5" />
-                        <path d="M115 70 Q135 50 120 45 Q105 40 100 55 Z" fill="#FFE4E6" />
+                        <path d="M115 70 L155 15 L90 55 Z" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="1.5" />
+                        <path d="M115 70 L135 40 L100 55 Z" fill="#FFE4E6" />
                       </motion.g>
 
                       {/* Голова - большая и круглая (Chibi style) */}
